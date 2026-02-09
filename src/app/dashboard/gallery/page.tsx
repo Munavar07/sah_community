@@ -22,7 +22,7 @@ export default function GalleryPage() {
             if (error) {
                 console.error("Error fetching logs:", error);
             } else {
-                setLogs(data as any[]);
+                setLogs((data || []) as DailyLog[]);
             }
             setLoading(false);
         };

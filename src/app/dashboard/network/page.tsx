@@ -7,8 +7,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
 
+interface TreeNode extends Partial<Profile> {
+    id: string;
+    name?: string;
+    children?: TreeNode[];
+}
+
 // Recursive Member Component
-const MemberNode = ({ member, depth = 0 }: { member: any, depth?: number }) => {
+const MemberNode = ({ member, depth = 0 }: { member: TreeNode, depth?: number }) => {
     const [isExpanded, setIsExpanded] = useState(true);
     const hasChildren = member.children && member.children.length > 0;
 
@@ -41,7 +47,7 @@ const MemberNode = ({ member, depth = 0 }: { member: any, depth?: number }) => {
                 <div className="relative">
                     <div className="absolute left-[20px] top-0 bottom-0 w-px bg-border -z-10" style={{ left: `${(depth * 24) + 20}px` }} />
 
-                    {member.children.map((child: any) => (
+                    {member.children?.map((child: TreeNode) => (
                         <MemberNode key={child.id} member={child} depth={depth + 1} />
                     ))}
                 </div>
@@ -51,7 +57,7 @@ const MemberNode = ({ member, depth = 0 }: { member: any, depth?: number }) => {
 };
 
 export default function NetworkPage() {
-    const [treeData, setTreeData] = useState<any | null>(null);
+    const [treeData, setTreeData] = useState<TreeNode | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -73,17 +79,24 @@ export default function NetworkPage() {
             // Assumption: Root has no referrer OR we pick the one named 'Shaji' top level.
             // Let's assume the user with no referrer is Root. Or we can find by name / role.
             // Strategy: Build a map.
-            const profileMap: Record<string, any> = {};
+            const profileMap: Record<string, TreeNode> = {};
             profiles.forEach(p => {
-                profileMap[p.id] = { ...p, name: p.full_name, children: [] };
+                profileMap[p.id] = {
+                    id: p.id,
+                    name: p.full_name,
+                    children: [],
+                    category: p.category,
+                    role: p.role,
+                    referrer_id: p.referrer_id
+                } as TreeNode;
             });
 
-            let root: any = null;
+            let root: TreeNode | null = null;
 
             // 2. Link children to parents
             profiles.forEach(p => {
                 if (p.referrer_id && profileMap[p.referrer_id]) {
-                    profileMap[p.referrer_id].children.push(profileMap[p.id]);
+                    profileMap[p.referrer_id].children?.push(profileMap[p.id]);
                 } else {
                     // Potential root. If multiple, we might need a virtual root.
                     // For now, take the first one or specific one.

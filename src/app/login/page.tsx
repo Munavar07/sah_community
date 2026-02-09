@@ -1,12 +1,11 @@
 "use client";
 
-import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { User, Lock, ShieldCheck, Loader2 } from "lucide-react";
+import { User, Lock, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -30,8 +29,9 @@ export default function LoginPage() {
             } else {
                 setMessage("Magic Link sent! Please check your email inbox to log in.");
             }
-        } catch (e: any) {
-            setMessage(e.message);
+        } catch (e) {
+            const err = e as Error;
+            setMessage(err.message);
         } finally {
             setLoading(false);
         }
@@ -117,9 +117,10 @@ export default function LoginPage() {
                 setMessage("Login successful. Redirecting...");
                 router.push("/dashboard");
             }
-        } catch (e: any) {
+        } catch (e) {
+            const err = e as Error;
             console.error(e);
-            setMessage(`Error: ${e.message || "An unexpected error occurred."}`);
+            setMessage(`Error: ${err?.message || "An unexpected error occurred."}`);
         } finally {
             // Only stop loading if we are NOT redirecting (to prevent flashing)
             // Actually, standard practice is to stop loading even if redirecting, 

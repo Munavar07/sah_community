@@ -32,7 +32,7 @@ const LeaderDashboard = () => (
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Today's Profit</CardTitle>
+                    <CardTitle className="text-sm font-medium">Today&apos;s Profit</CardTitle>
                     <Activity className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
@@ -139,7 +139,7 @@ export default function DashboardPage() {
         <DashboardLayout>
             <div className="flex flex-col gap-6">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+                    <h2 className="text-3xl font-bold tracking-tight">Today&apos;s Highlights</h2>
                     <p className="text-muted-foreground">
                         {user?.role === 'leader' ? 'Administrator View' : 'Member Overview'}
                     </p>

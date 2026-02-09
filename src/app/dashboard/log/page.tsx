@@ -59,9 +59,10 @@ export default function LogProfitPage() {
             setMessage("Success! Daily profit logged.");
             setProfit("");
             setFile(null);
-        } catch (err: any) {
-            console.error(err);
-            setMessage(`Error: ${err.message}`);
+        } catch (err) {
+            const error = err as Error;
+            console.error(error);
+            setMessage(`Error: ${error.message}`);
         } finally {
             setLoading(false);
         }
@@ -77,7 +78,7 @@ export default function LogProfitPage() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Log Today's Result</CardTitle>
+                        <CardTitle>Log Today&apos;s Result</CardTitle>
                         <CardDescription>Enter your profit/loss and upload the screenshot.</CardDescription>
                     </CardHeader>
                     <CardContent>

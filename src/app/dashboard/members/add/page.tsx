@@ -121,9 +121,10 @@ export default function AddMemberPage() {
             setAmount("");
             setFile(null);
 
-        } catch (err: any) {
-            console.error(err);
-            setMessage(`Error: ${err.message || "Failed to create member"}`);
+        } catch (err) {
+            const error = err as Error;
+            console.error(error);
+            setMessage(`Error: ${error.message || "Failed to create member"}`);
         } finally {
             setLoading(false);
         }
@@ -140,7 +141,7 @@ export default function AddMemberPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Member Details</CardTitle>
-                        <CardDescription>Enter the new member's information and investment details.</CardDescription>
+                        <CardDescription>Enter the new member&apos;s information and investment details.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {message && (
