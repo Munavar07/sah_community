@@ -9,6 +9,8 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2, CheckCircle, Upload } from "lucide-react";
+import { logProfitAction } from "@/app/actions";
+
 
 export default function LogProfitPage() {
     const { user } = useAuth();
@@ -25,38 +27,21 @@ export default function LogProfitPage() {
         setMessage(null);
 
         try {
-            let screenshotUrl = null;
-
             if (!file) throw new Error("Please upload a result screenshot.");
 
-            // Upload Screenshot
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}-log-${Date.now()}.${fileExt}`;
-            const { error: uploadError } = await supabase.storage
-                .from('results')
-                .upload(fileName, file);
+            // Call Server Action
+            const formData = new FormData();
+            formData.append("userId", user.id);
+            formData.append("profit", profit);
+            formData.append("proof", file);
 
-            if (uploadError) throw uploadError;
+            const result = await logProfitAction(null, formData);
 
-            const { data: { publicUrl } } = supabase.storage
-                .from('results')
-                .getPublicUrl(fileName);
+            if (!result.success) {
+                throw new Error(result.message);
+            }
 
-            screenshotUrl = publicUrl;
-
-            // Insert Log
-            const { error: dbError } = await supabase
-                .from('daily_logs')
-                .insert({
-                    member_id: user.id,
-                    profit_amount: parseFloat(profit),
-                    screenshot_url: screenshotUrl,
-                    log_date: new Date().toISOString()
-                });
-
-            if (dbError) throw dbError;
-
-            setMessage("Success! Daily profit logged.");
+            setMessage(result.message);
             setProfit("");
             setFile(null);
         } catch (err) {

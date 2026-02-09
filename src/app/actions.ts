@@ -102,3 +102,72 @@ export async function createMemberAction(prevState: any, formData: FormData) {
         return { success: false, message: `Error: ${err.message}` };
     }
 }
+
+export async function logProfitAction(prevState: any, formData: FormData) {
+    if (!serviceRoleKey) {
+        return { success: false, message: "Server Error: Missing Service Role Key" };
+    }
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    });
+
+    const userId = formData.get("userId") as string;
+    const profit = parseFloat(formData.get("profit") as string);
+    const proofFile = formData.get("proof") as File;
+
+    if (!userId) return { success: false, message: "User not authenticated" };
+
+    try {
+        let screenshotUrl = "";
+
+        // 1. Upload Screenshot (Admin API - No RLS)
+        if (proofFile && proofFile.size > 0) {
+            const fileExt = proofFile.name.split('.').pop();
+            const fileName = `${userId}-log-${Date.now()}.${fileExt}`;
+            const arrayBuffer = await proofFile.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            const { error: uploadError } = await supabaseAdmin.storage
+                .from('results')
+                .upload(fileName, buffer, {
+                    contentType: proofFile.type,
+                    upsert: true
+                });
+
+            if (uploadError) throw new Error("Upload failed: " + uploadError.message);
+
+            const { data: { publicUrl } } = supabaseAdmin.storage
+                .from('results')
+                .getPublicUrl(fileName);
+
+            screenshotUrl = publicUrl;
+        } else {
+            throw new Error("Screenshot is required");
+        }
+
+        // 2. Insert Log
+        const { error: dbError } = await supabaseAdmin
+            .from('daily_logs')
+            .insert({
+                member_id: userId,
+                profit_amount: profit,
+                screenshot_url: screenshotUrl,
+                log_date: new Date().toISOString()
+            });
+
+        if (dbError) throw dbError;
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/gallery");
+        return { success: true, message: "Success! Daily profit logged." };
+
+    } catch (err: any) {
+        console.error("Log Profit Error:", err);
+        return { success: false, message: `Error: ${err.message}` };
+    }
+}
+
