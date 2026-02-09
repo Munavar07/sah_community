@@ -24,8 +24,8 @@ export async function createMemberAction(prevState: any, formData: FormData) {
     const amount = parseFloat(formData.get("amount") as string);
     const category = formData.get("category") as string;
     const uplineId = formData.get("uplineId") as string;
-    const uplineId = formData.get("uplineId") as string;
     const proofFile = formData.get("proof") as File;
+
     let proofUrl = "";
 
     try {
