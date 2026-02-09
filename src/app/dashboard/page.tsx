@@ -140,7 +140,7 @@ const MemberDashboard = ({ stats }: { stats: DashboardStats }) => (
 );
 
 export default function DashboardPage() {
-    const { user, isLoading: authLoading } = useAuth();
+    const { user, profile, isLoading: authLoading } = useAuth();
     const [stats, setStats] = useState<DashboardStats>({
         totalInvestment: 0,
         totalProfit: 0,
@@ -151,10 +151,10 @@ export default function DashboardPage() {
 
     useEffect(() => {
         const fetchStats = async () => {
-            if (!user) return;
+            if (!user || !profile) return;
 
             try {
-                if (user.role === 'leader') {
+                if (profile.role === 'leader') {
                     // Admin: Aggregated data
                     const { data: invData } = await supabase.from('investments').select('amount');
                     const { data: logData } = await supabase.from('daily_logs').select('profit_amount');
@@ -193,10 +193,10 @@ export default function DashboardPage() {
             }
         };
 
-        if (!authLoading && user) {
+        if (!authLoading && user && profile) {
             fetchStats();
         }
-    }, [user, authLoading]);
+    }, [user, profile, authLoading]);
 
     if (authLoading || loading) return (
         <DashboardLayout>
@@ -212,11 +212,11 @@ export default function DashboardPage() {
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Today&apos;s Highlights</h2>
                     <p className="text-muted-foreground">
-                        {user?.role === 'leader' ? 'Administrator Oversight' : 'Personal Performance Overview'}
+                        {profile?.role === 'leader' ? 'Administrator Oversight' : 'Personal Performance Overview'}
                     </p>
                 </div>
 
-                {user?.role === 'leader' ? (
+                {profile?.role === 'leader' ? (
                     <LeaderDashboard stats={stats} />
                 ) : (
                     <MemberDashboard stats={stats} />
