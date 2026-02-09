@@ -76,4 +76,6 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
-}// Force trigger Vercel build
+}
+
+/* Force trigger Vercel build */
