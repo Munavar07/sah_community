@@ -11,6 +11,8 @@ import { UserPlus, DollarSign, Users, Award, Upload, Loader2, CheckCircle } from
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
 
+import { createMemberAction } from "@/app/actions";
+
 export default function AddMemberPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -39,44 +41,17 @@ export default function AddMemberPage() {
         setMessage(null);
 
         try {
-            // 1. Sign Up the User (This creates Auth User)
-            // Note: In a real client-side app, signUp signs in the new user immediately or sends confirmation.
-            // To strictly "Admin adds user", we ideally use a Backend Function. 
-            // For this MVP, we will try `signUp` but it might affect current session. 
-            // ACTUALLY: A better MVP approach is to just INSERT into profiles if we don't strictly need them to login yet.
-            // BUT they need to login.
-            // WORKAROUND: We will just mock the "Auht User Creation" part or warn the admin.
-            // REAL FIX: Using supabase.auth.signUp() will log the current user out if 'autoConfirm' is on.
-            // LET'S ASSUME we want a functioning app.
+            let proofUrl = "";
 
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        full_name: name,
-                        role: 'member',
-                        // We can't set foreign keys here easily, better to update profile after
-                    }
-                }
-            });
-
-            if (authError) throw authError;
-            if (!authData.user) throw new Error("User creation failed");
-
-            const userId = authData.user.id;
-
-            // 2. Upload Profile Image / Investment Proof ?? 
-            // Requirement: Investment Proof for Admin.
-            let proofUrl = null;
+            // 1. Upload File Client-Side (Standard Client Key is fine for storage if policies are set)
             if (file) {
                 const fileExt = file.name.split('.').pop();
-                const fileName = `${userId}-investment-${Date.now()}.${fileExt}`;
+                const fileName = `admin-upload-${Date.now()}.${fileExt}`;
                 const { error: uploadError } = await supabase.storage
                     .from('proofs')
                     .upload(fileName, file);
 
-                if (uploadError) throw uploadError;
+                if (uploadError) throw new Error("Upload failed: " + uploadError.message);
 
                 const { data: { publicUrl } } = supabase.storage
                     .from('proofs')
@@ -85,35 +60,24 @@ export default function AddMemberPage() {
                 proofUrl = publicUrl;
             }
 
-            // 3. Update/Insert Profile (Trigger might create profile on signup, so we update)
-            // Or if no trigger, we insert. Let's try upsert.
-            const { error: profileError } = await supabase
-                .from('profiles')
-                .upsert({
-                    id: userId,
-                    email,
-                    full_name: name,
-                    role: 'member',
-                    referrer_id: upline || null, // Handle root case
-                    category
-                });
+            // 2. Call Server Action
+            const formData = new FormData();
+            formData.append("email", email);
+            formData.append("password", password);
+            formData.append("fullName", name);
+            formData.append("amount", amount);
+            formData.append("category", category);
+            formData.append("uplineId", upline);
+            formData.append("proofUrl", proofUrl);
 
-            if (profileError) throw profileError;
+            const result = await createMemberAction(null, formData);
 
-            // 4. Create Investment Record
-            const { error: investError } = await supabase
-                .from('investments')
-                .insert({
-                    member_id: userId,
-                    amount: parseFloat(amount),
-                    status: 'active',
-                    proof_url: proofUrl,
-                    start_date: new Date().toISOString()
-                });
+            if (!result.success) {
+                throw new Error(result.message);
+            }
 
-            if (investError) throw investError;
+            setMessage(result.message);
 
-            setMessage(`Success! Member ${name} created.`);
             // Reset form
             setName("");
             setEmail("");
