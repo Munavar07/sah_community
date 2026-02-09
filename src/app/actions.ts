@@ -24,12 +24,35 @@ export async function createMemberAction(prevState: any, formData: FormData) {
     const amount = parseFloat(formData.get("amount") as string);
     const category = formData.get("category") as string;
     const uplineId = formData.get("uplineId") as string;
-    // We can't handle file upload directly in server action easily without extra setup in this environment
-    // So we will handle file upload on client, get URL, then pass URL here.
-    const proofUrl = formData.get("proofUrl") as string;
+    const uplineId = formData.get("uplineId") as string;
+    const proofFile = formData.get("proof") as File;
+    let proofUrl = "";
 
     try {
-        // 1. Create Auth User (Admin API - No Rate Limits)
+        // 1. Upload Proof (Admin API - No RLS)
+        if (proofFile && proofFile.size > 0) {
+            const fileExt = proofFile.name.split('.').pop();
+            const fileName = `admin-upload-${Date.now()}.${fileExt}`;
+            const arrayBuffer = await proofFile.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+
+            const { error: uploadError } = await supabaseAdmin.storage
+                .from('proofs')
+                .upload(fileName, buffer, {
+                    contentType: proofFile.type,
+                    upsert: true
+                });
+
+            if (uploadError) throw new Error("Upload failed: " + uploadError.message);
+
+            const { data: { publicUrl } } = supabaseAdmin.storage
+                .from('proofs')
+                .getPublicUrl(fileName);
+
+            proofUrl = publicUrl;
+        }
+
+        // 2. Create Auth User (Admin API - No Rate Limits)
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,

@@ -41,26 +41,7 @@ export default function AddMemberPage() {
         setMessage(null);
 
         try {
-            let proofUrl = "";
-
-            // 1. Upload File Client-Side (Standard Client Key is fine for storage if policies are set)
-            if (file) {
-                const fileExt = file.name.split('.').pop();
-                const fileName = `admin-upload-${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage
-                    .from('proofs')
-                    .upload(fileName, file);
-
-                if (uploadError) throw new Error("Upload failed: " + uploadError.message);
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('proofs')
-                    .getPublicUrl(fileName);
-
-                proofUrl = publicUrl;
-            }
-
-            // 2. Call Server Action
+            // Call Server Action
             const formData = new FormData();
             formData.append("email", email);
             formData.append("password", password);
@@ -68,7 +49,10 @@ export default function AddMemberPage() {
             formData.append("amount", amount);
             formData.append("category", category);
             formData.append("uplineId", upline);
-            formData.append("proofUrl", proofUrl);
+
+            if (file) {
+                formData.append("proof", file);
+            }
 
             const result = await createMemberAction(null, formData);
 
