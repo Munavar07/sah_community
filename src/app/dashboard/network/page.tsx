@@ -6,6 +6,8 @@ import { Users, ChevronRight, ChevronDown } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
+import Link from "next/link";
+
 
 interface TreeNode extends Partial<Profile> {
     id: string;
@@ -35,12 +37,24 @@ const MemberNode = ({ member, depth = 0 }: { member: TreeNode, depth?: number })
                     {member.name?.charAt(0) || 'U'}
                 </div>
 
-                <div className="flex-1">
-                    <h4 className="font-semibold text-sm">{member.name} {depth === 0 && "(Director)"}</h4>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="capitalize">{member.category || 'Standard'}</span>
+                <div className="flex-1 flex justify-between items-center pr-2">
+                    <div>
+                        <h4 className="font-semibold text-sm">{member.name} {depth === 0 && "(Director)"}</h4>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="capitalize">{member.category || 'Standard'}</span>
+                        </div>
                     </div>
+
+                    <Link
+                        href={`/dashboard/members/${member.id}`}
+                        onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent expansion toggle
+                        className="p-2 hover:bg-indigo-500/10 rounded-full text-indigo-500 transition-colors"
+                        title="View Full Details"
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </Link>
                 </div>
+
             </div>
 
             {isExpanded && hasChildren && (
