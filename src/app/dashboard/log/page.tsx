@@ -29,6 +29,11 @@ export default function LogProfitPage() {
         try {
             if (!file) throw new Error("Please upload a result screenshot.");
 
+            // Client-side size check (4MB)
+            if (file.size > 4 * 1024 * 1024) {
+                throw new Error("File is too large. Please upload an image smaller than 4MB.");
+            }
+
             // Call Server Action
             const formData = new FormData();
             formData.append("userId", user.id);
@@ -37,8 +42,8 @@ export default function LogProfitPage() {
 
             const result = await logProfitAction(null, formData);
 
-            if (!result.success) {
-                throw new Error(result.message);
+            if (!result || !result.success) {
+                throw new Error(result?.message || "An unexpected error occurred on the server.");
             }
 
             setMessage(result.message);
@@ -46,7 +51,7 @@ export default function LogProfitPage() {
             setFile(null);
         } catch (err) {
             const error = err as Error;
-            console.error(error);
+            console.error("Submit Error:", error);
             setMessage(`Error: ${error.message}`);
         } finally {
             setLoading(false);
