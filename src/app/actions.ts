@@ -105,7 +105,7 @@ export async function createMemberAction(prevState: any, formData: FormData) {
 
 export async function logProfitAction(prevState: any, formData: FormData) {
     if (!serviceRoleKey) {
-        return { success: false, message: "Server Error: Missing Service Role Key" };
+        return { success: false, message: "Server Error: Missing Service Role Key in Environment" };
     }
 
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -116,16 +116,23 @@ export async function logProfitAction(prevState: any, formData: FormData) {
     });
 
     const userId = formData.get("userId") as string;
-    const profit = parseFloat(formData.get("profit") as string);
+    const profitStr = formData.get("profit") as string;
+    const profit = parseFloat(profitStr);
     const proofFile = formData.get("proof") as File;
 
-    if (!userId) return { success: false, message: "User not authenticated" };
+    if (!userId) return { success: false, message: "User session not found. Please re-login." };
+    if (isNaN(profit)) return { success: false, message: "Invalid profit amount." };
 
     try {
         let screenshotUrl = "";
 
-        // 1. Upload Screenshot (Admin API - No RLS)
+        // 1. Upload Screenshot
         if (proofFile && proofFile.size > 0) {
+            // Body limit check for Vercel (4.5MB)
+            if (proofFile.size > 4 * 1024 * 1024) {
+                return { success: false, message: "File too large. Max 4MB allowed." };
+            }
+
             const fileExt = proofFile.name.split('.').pop();
             const fileName = `${userId}-log-${Date.now()}.${fileExt}`;
             const arrayBuffer = await proofFile.arrayBuffer();
@@ -138,7 +145,10 @@ export async function logProfitAction(prevState: any, formData: FormData) {
                     upsert: true
                 });
 
-            if (uploadError) throw new Error("Upload failed: " + uploadError.message);
+            if (uploadError) {
+                console.error("Upload Error:", uploadError);
+                return { success: false, message: `Upload failed: ${uploadError.message}. Ensure 'results' bucket exists.` };
+            }
 
             const { data: { publicUrl } } = supabaseAdmin.storage
                 .from('results')
@@ -146,28 +156,33 @@ export async function logProfitAction(prevState: any, formData: FormData) {
 
             screenshotUrl = publicUrl;
         } else {
-            throw new Error("Screenshot is required");
+            return { success: false, message: "Screenshot is required" };
         }
 
         // 2. Insert Log
+        const todayDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+
         const { error: dbError } = await supabaseAdmin
             .from('daily_logs')
             .insert({
                 member_id: userId,
                 profit_amount: profit,
                 screenshot_url: screenshotUrl,
-                log_date: new Date().toISOString()
+                log_date: todayDate
             });
 
-        if (dbError) throw dbError;
+        if (dbError) {
+            console.error("DB Error:", dbError);
+            return { success: false, message: `Database error: ${dbError.message}` };
+        }
 
         revalidatePath("/dashboard");
         revalidatePath("/dashboard/gallery");
         return { success: true, message: "Success! Daily profit logged." };
 
     } catch (err: any) {
-        console.error("Log Profit Error:", err);
-        return { success: false, message: `Error: ${err.message}` };
+        console.error("Unexpected Action Error:", err);
+        return { success: false, message: `Action Error: ${err.message || "Unknown error occurred"}` };
     }
 }
 
