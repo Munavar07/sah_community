@@ -9,16 +9,14 @@ import Link from "next/link";
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Badge } from "@/components/ui/badge";
 
 interface DashboardStats {
     totalInvestment: number;
-    totalProfit: number; // Admin: Total. Member: Lifetime.
-    todayProfit: number; // Strictly today for both.
+    totalProfit: number; // For Admin, this will be Today's Profit
     memberCount?: number;
     dailyStatus?: string;
     hasActiveInvestment?: boolean;
-    pendingMembers?: { id: string; full_name: string }[];
+    pendingMembers?: string[]; // Names of members who haven't logged today
 }
 
 const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
@@ -47,59 +45,56 @@ const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Today&apos;s Profit</CardTitle>
-                    <Activity className="h-4 w-4 text-indigo-500" />
+                    <Activity className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-indigo-600">${stats.todayProfit.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Aggregated today ({new Date().toLocaleDateString()})</p>
+                    <div className="text-2xl font-bold text-emerald-600">${stats.totalProfit.toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">Resets every 24hrs</p>
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Lifetime Profit</CardTitle>
-                    <Activity className="h-4 w-4 text-emerald-500" />
+                    <CardTitle className="text-sm font-medium">System Status</CardTitle>
+                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-emerald-600">${stats.totalProfit.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Total network earnings</p>
+                    <div className="text-2xl font-bold text-emerald-500">Active</div>
+                    <p className="text-xs text-muted-foreground">All systems operational</p>
                 </CardContent>
             </Card>
         </div>
 
+        {/* Pending Logs Alert Section */}
         {stats.pendingMembers && stats.pendingMembers.length > 0 && (
             <Card className="border-amber-500/50 bg-amber-500/5">
-                <CardHeader className="pb-3 text-amber-600">
-                    <div className="flex items-center gap-2">
-                        <AlertCircle className="h-5 w-5" />
-                        <CardTitle className="text-lg">Pending Logs Alert</CardTitle>
-                    </div>
+                <CardHeader className="flex flex-row items-center gap-2 pb-2">
+                    <AlertCircle className="h-5 w-5 text-amber-500" />
+                    <CardTitle className="text-lg text-amber-600">Pending Daily Profits</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-amber-700 mb-4 font-medium">
-                        {stats.pendingMembers.length} members have NOT yet uploaded their daily profit logs today:
+                    <p className="text-sm text-muted-foreground mb-4">
+                        The following members have not yet uploaded their profit screenshots for today:
                     </p>
                     <div className="flex flex-wrap gap-2">
-                        {stats.pendingMembers.map((m) => (
-                            <Link key={m.id} href={`/dashboard/members/${m.id}`}>
-                                <Badge variant="outline" className="bg-white hover:bg-amber-100 cursor-pointer border-amber-200 text-amber-700 px-3 py-1">
-                                    {m.full_name}
-                                </Badge>
-                            </Link>
+                        {stats.pendingMembers.map((name, i) => (
+                            <div key={i} className="bg-amber-500/10 text-amber-700 px-3 py-1 rounded-full text-xs font-medium border border-amber-500/20">
+                                {name}
+                            </div>
                         ))}
                     </div>
                 </CardContent>
             </Card>
         )}
 
-        <Card className="h-[150px] flex flex-col items-center justify-center border-dashed">
-            <div className="text-center space-y-2">
-                <div className="bg-muted/50 p-3 rounded-full inline-block">
-                    <Activity className="h-6 w-6 text-muted-foreground" />
+        <Card className="h-[200px] flex flex-col items-center justify-center border-dashed">
+            <div className="text-center space-y-4">
+                <div className="bg-muted/50 p-4 rounded-full inline-block">
+                    <Activity className="h-8 w-8 text-muted-foreground" />
                 </div>
                 <div>
-                    <h3 className="text-base font-medium">Network Oversight</h3>
-                    <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
-                        Viewing real-time aggregated performance across {stats.memberCount} members.
+                    <h3 className="text-lg font-medium">Network Oversight</h3>
+                    <p className="text-muted-foreground max-w-sm mx-auto mt-1">
+                        You are viewing aggregated data for your entire trading community.
                     </p>
                 </div>
             </div>
@@ -109,7 +104,7 @@ const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
 
 const MemberDashboard = ({ stats }: { stats: DashboardStats }) => (
     <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Personal Investment</CardTitle>
@@ -118,16 +113,6 @@ const MemberDashboard = ({ stats }: { stats: DashboardStats }) => (
                 <CardContent>
                     <div className="text-2xl font-bold">${stats.totalInvestment.toLocaleString()}</div>
                     <p className="text-xs text-muted-foreground">Current active capital</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Today&apos;s Profit</CardTitle>
-                    <Activity className="h-4 w-4 text-indigo-500" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-indigo-600">${stats.todayProfit.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Earned today ({new Date().toLocaleDateString()})</p>
                 </CardContent>
             </Card>
             <Card>
@@ -193,55 +178,48 @@ export default function DashboardPage() {
 
             try {
                 if (profile.role === 'leader') {
-                    // Start and end of today in local calendar
-                    const todayDate = new Date().toLocaleDateString('en-CA');
-                    const start = `${todayDate}T00:00:00.000Z`;
-                    const end = `${todayDate}T23:59:59.999Z`;
+                    // Admin: Aggregated data
+                    const today = new Date().toISOString().split('T')[0];
 
-                    // Fetch data
                     const { data: invData } = await supabase.from('investments').select('amount');
-                    const { data: logDataAll } = await supabase.from('daily_logs').select('profit_amount, log_date, member_id');
-                    const { data: profilesAll } = await supabase.from('profiles').select('id, full_name').eq('role', 'member');
-                    const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+                    const { data: logData } = await supabase.from('daily_logs').select('profit_amount, member_id, log_date');
+                    const { data: profileData } = await supabase.from('profiles').select('id, full_name, role');
 
                     const totalInv = invData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
-                    const totalProfLifetime = logDataAll?.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
 
-                    // Filter logs for TODAY only
-                    const logsToday = logDataAll?.filter(l => l.log_date >= start && l.log_date <= end) || [];
-                    const todayProf = logsToday.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
+                    // Filter logs for today only
+                    const todayLogs = logData?.filter(l => l.log_date?.startsWith(today)) || [];
+                    const totalProfToday = todayLogs.reduce((sum, item) => sum + Number(item.profit_amount), 0);
 
-                    // Calculate pending members (those in profilesAll but NOT in logsToday)
-                    const loggedMemberIds = new Set(logsToday.map(l => l.member_id));
-                    const pending = profilesAll?.filter(p => !loggedMemberIds.has(p.id)) || [];
+                    // Identify members (exclude leaders)
+                    const members = profileData?.filter(p => p.role === 'member') || [];
+                    const loggedMemberIds = new Set(todayLogs.map(l => l.member_id));
+
+                    const pendingMembers = members
+                        .filter(m => !loggedMemberIds.has(m.id))
+                        .map(m => m.full_name || "Unknown Member");
 
                     setStats({
                         totalInvestment: totalInv,
-                        totalProfit: totalProfLifetime,
-                        todayProfit: todayProf,
-                        memberCount: count || 0,
-                        pendingMembers: pending
+                        totalProfit: totalProfToday,
+                        memberCount: members.length,
+                        pendingMembers
                     });
                 } else {
                     // Member: Personal data
-                    const todayDate = new Date().toLocaleDateString('en-CA');
-                    const start = `${todayDate}T00:00:00.000Z`;
-                    const end = `${todayDate}T23:59:59.999Z`;
-
                     const { data: invData } = await supabase.from('investments').select('amount').eq('member_id', user.id);
-                    const { data: logDataPersonal } = await supabase.from('daily_logs').select('profit_amount, log_date').eq('member_id', user.id);
+                    const { data: logData } = await supabase.from('daily_logs').select('profit_amount, log_date').eq('member_id', user.id);
 
                     const totalInv = invData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
-                    const totalProfLifetime = logDataPersonal?.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
+                    const totalProf = logData?.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
 
-                    const logsToday = logDataPersonal?.filter(l => l.log_date >= start && l.log_date <= end) || [];
-                    const todayProf = logsToday.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
-                    const hasLoggedToday = logsToday.length > 0;
+                    // Check if logged today
+                    const today = new Date().toISOString().split('T')[0];
+                    const hasLoggedToday = logData?.some(l => l.log_date === today);
 
                     setStats({
                         totalInvestment: totalInv,
-                        totalProfit: totalProfLifetime,
-                        todayProfit: todayProf,
+                        totalProfit: totalProf,
                         dailyStatus: hasLoggedToday ? 'Completed' : 'Pending'
                     });
                 }
