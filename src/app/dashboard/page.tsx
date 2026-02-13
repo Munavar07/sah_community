@@ -183,7 +183,7 @@ export default function DashboardPage() {
 
                     const { data: invData } = await supabase.from('investments').select('amount');
                     const { data: logData } = await supabase.from('daily_logs').select('profit_amount, member_id, log_date');
-                    const { data: profileData } = await supabase.from('profiles').select('id, full_name, role');
+                    const { data: profileData } = await supabase.from('profiles').select('id, full_name, role, created_at');
 
                     const totalInv = invData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
 
@@ -191,8 +191,12 @@ export default function DashboardPage() {
                     const todayLogs = logData?.filter(l => l.log_date?.startsWith(today)) || [];
                     const totalProfToday = todayLogs.reduce((sum, item) => sum + Number(item.profit_amount), 0);
 
-                    // Identify members (exclude leaders)
-                    const members = profileData?.filter(p => p.role === 'member') || [];
+                    // Identify members (exclude leaders and members created in last 24h)
+                    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                    const members = profileData?.filter(p =>
+                        p.role === 'member' &&
+                        new Date(p.created_at || 0) < oneDayAgo
+                    ) || [];
                     const loggedMemberIds = new Set(todayLogs.map(l => l.member_id));
 
                     const pendingMembers = members

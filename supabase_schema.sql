@@ -47,5 +47,18 @@ create policy "Members can insert investments" on public.investments for insert 
 create policy "Logs viewable by everyone" on public.daily_logs for select using (true);
 create policy "Members can insert logs" on public.daily_logs for insert with check (auth.uid() = member_id);
 
+-- Commissions table
+create table public.commissions (
+  id uuid default gen_random_uuid() primary key,
+  referrer_id uuid references public.profiles(id) not null,
+  member_id uuid references public.profiles(id) not null,
+  amount numeric not null,
+  type text default 'referral',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.commissions enable row level security;
+create policy "Commissions viewable by everyone" on public.commissions for select using (true);
+
 -- Storage buckets
 -- You will need to create 'proofs' and 'results' buckets in the Supabase Storage UI.

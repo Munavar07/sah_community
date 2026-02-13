@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-export async function createMemberAction(prevState: any, formData: FormData) {
+export async function createMemberAction(prevState: unknown, formData: FormData) {
     if (!serviceRoleKey) {
         return { success: false, message: "Server Error: Missing Service Role Key" };
     }
@@ -94,16 +94,35 @@ export async function createMemberAction(prevState: any, formData: FormData) {
 
         if (investError) throw investError;
 
+        // 4. Handle Referral Commission (5%)
+        if (uplineId && uplineId !== "none") {
+            const commissionAmount = amount * 0.05;
+            const { error: commissionError } = await supabaseAdmin
+                .from('commissions')
+                .insert({
+                    referrer_id: uplineId,
+                    member_id: userId,
+                    amount: commissionAmount,
+                    type: 'referral'
+                });
+
+            if (commissionError) {
+                console.error("Referral Commission Error:", commissionError);
+                // We don't throw here to avoid failing member creation just for commission record
+            }
+        }
+
         revalidatePath("/dashboard/network");
         return { success: true, message: `Success! Member ${fullName} created.` };
 
-    } catch (err: any) {
-        console.error("Create Member Error:", err);
-        return { success: false, message: `Error: ${err.message}` };
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("Create Member Error:", error);
+        return { success: false, message: `Error: ${error.message}` };
     }
 }
 
-export async function logProfitAction(prevState: any, formData: FormData) {
+export async function logProfitAction(prevState: unknown, formData: FormData) {
     try {
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -173,8 +192,9 @@ export async function logProfitAction(prevState: any, formData: FormData) {
 
         return { success: true, message: "Success! Daily profit logged." };
 
-    } catch (err: any) {
-        console.error("CRITICAL ACTION ERROR:", err);
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("CRITICAL ACTION ERROR:", error);
         return { success: false, message: "Critical Server Error. Please try again later." };
     }
 }
