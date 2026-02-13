@@ -49,7 +49,7 @@ const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-emerald-600">${stats.totalProfit.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Resets every 24hrs</p>
+                    <p className="text-xs text-muted-foreground">Resets at 12 AM daily</p>
                 </CardContent>
             </Card>
             <Card>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
             try {
                 if (profile.role === 'leader') {
                     // Admin: Aggregated data
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = new Date().toLocaleDateString('en-CA');
 
                     const { data: invData } = await supabase.from('investments').select('amount');
                     const { data: logData } = await supabase.from('daily_logs').select('profit_amount, member_id, log_date');
@@ -218,7 +218,7 @@ export default function DashboardPage() {
                     const totalProf = logData?.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
 
                     // Check if logged today
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = new Date().toLocaleDateString('en-CA');
                     const hasLoggedToday = logData?.some(l => l.log_date === today);
 
                     setStats({
