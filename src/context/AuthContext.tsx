@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { Profile } from "@/types";
@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 type AuthContextType = {
     user: User | null;
     profile: Profile | null;
-    login: (email: string) => Promise<void>; // Simplified for magic link or just email for now
+    login: (email: string) => Promise<void>;
     logout: () => Promise<void>;
     isLoading: boolean;
 };
@@ -28,17 +28,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const lastUserId = useRef<string | null>(null);
     const router = useRouter();
 
     useEffect(() => {
+        // Checking session on mount to prevent flash
+        const initSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                setUser(session.user);
+                if (lastUserId.current !== session.user.id) {
+                    lastUserId.current = session.user.id;
+                    await fetchProfile(session.user.id);
+                }
+            } else {
+                setIsLoading(false);
+            }
+        };
+        initSession();
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             const currentUser = session?.user ?? null;
             setUser(currentUser);
 
             if (currentUser) {
-                // Only fetch if session changed or profile is missing
-                await fetchProfile(currentUser.id);
+                // Prevent redundant fetches (e.g. on TOKEN_REFRESH)
+                if (lastUserId.current !== currentUser.id) {
+                    lastUserId.current = currentUser.id;
+                    await fetchProfile(currentUser.id);
+                }
             } else {
+                lastUserId.current = null;
                 setProfile(null);
                 setIsLoading(false);
             }
@@ -58,8 +78,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
             if (error) {
                 console.error("Error fetching profile:", error);
-                // If error code is 'PGRST116' (JSON object returned 0 results), it means profile doesn't exist.
-                // We should allow the app to load so we can perhaps show a "Complete Profile" screen.
             } else {
                 setProfile(data as Profile);
             }
