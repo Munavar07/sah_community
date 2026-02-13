@@ -10,6 +10,7 @@ import {
     DollarSign,
     TrendingUp,
     User,
+    Users,
     MapPin,
     Image as ImageIcon,
     FileText,
@@ -26,7 +27,9 @@ interface MemberDetail {
     profile: Profile & { referrer?: { full_name: string } };
     investments: any[];
     logs: any[];
+    commissions: any[];
     totalProfit: number;
+    totalCommissions: number;
 }
 
 export default function MemberDetailPage() {
@@ -69,13 +72,25 @@ export default function MemberDetailPage() {
 
                 if (lError) throw lError;
 
-                const totalProfit = logs?.reduce((sum, log) => sum + Number(log.profit_amount), 0) || 0;
+                // 4. Fetch Commissions (Referral Earnings)
+                const { data: commissions, error: cError } = await supabase
+                    .from('commissions')
+                    .select('*, member:member_id(full_name)')
+                    .eq('referrer_id', id)
+                    .order('created_at', { ascending: false });
+
+                if (cError) throw cError;
+
+                const tradingProfit = logs?.reduce((sum, log) => sum + Number(log.profit_amount), 0) || 0;
+                const totalCommissions = commissions?.reduce((sum, com) => sum + Number(com.amount), 0) || 0;
 
                 setData({
                     profile: profile as any,
                     investments: investments || [],
                     logs: logs || [],
-                    totalProfit
+                    commissions: commissions || [],
+                    totalProfit: tradingProfit + totalCommissions,
+                    totalCommissions
                 });
             } catch (err) {
                 console.error("Error fetching member details:", err);
@@ -128,7 +143,7 @@ export default function MemberDetailPage() {
                     </div>
                 </div>
 
-                <div className="grid gap-6 md:grid-cols-3">
+                <div className="grid gap-6 md:grid-cols-4">
                     {/* Key Stats */}
                     <Card>
                         <CardHeader className="pb-2">
@@ -140,10 +155,19 @@ export default function MemberDetailPage() {
                     </Card>
                     <Card>
                         <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">Referral Earnings</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-amber-500">${data.totalCommissions.toLocaleString()}</div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
                             <CardTitle className="text-sm font-medium">Lifetime Profit</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold text-emerald-500">${totalProfit.toLocaleString()}</div>
+                            <p className="text-[10px] text-muted-foreground mt-1">Trading + Referrals</p>
                         </CardContent>
                     </Card>
                     <Card>
@@ -151,7 +175,7 @@ export default function MemberDetailPage() {
                             <CardTitle className="text-sm font-medium">Status</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <Badge className={investments.some(i => i.status === 'active') ? 'bg-emerald-500' : 'bg-amber-500'}>
+                            <Badge className={investments.some(i => i.status === 'active') ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}>
                                 {investments.some(i => i.status === 'active') ? 'Active Investor' : 'Inactive'}
                             </Badge>
                         </CardContent>
@@ -246,12 +270,44 @@ export default function MemberDetailPage() {
                                         )}
                                     </div>
                                 )) : (
-                                    <div className="text-center py-10 text-muted-foreground">No profit logs found for this member.</div>
+                                    <div className="text-center py-10 text-muted-foreground">No profit logs found.</div>
                                 )}
                             </div>
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* Referral History */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Users className="h-5 w-5" /> Referral Earnings Detail
+                        </CardTitle>
+                        <CardDescription>Commissions earned from direct referrals (5% of investment).</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {data.commissions.length > 0 ? data.commissions.map((com) => (
+                                <div key={com.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-amber-500/10 p-2 rounded text-amber-500">
+                                            <TrendingUp className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">Referral Bonus from <span className="text-indigo-500">{com.member?.full_name || 'Member'}</span></p>
+                                            <p className="text-xs text-muted-foreground">{new Date(com.created_at).toLocaleDateString()}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-amber-600">+${Number(com.amount).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="text-center py-10 text-muted-foreground">No referral commissions earned yet.</div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
         </DashboardLayout>
     );

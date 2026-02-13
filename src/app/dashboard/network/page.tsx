@@ -13,6 +13,7 @@ interface TreeNode extends Partial<Profile> {
     id: string;
     name?: string;
     children?: TreeNode[];
+    totalProfit?: number;
 }
 
 // Recursive Member Component
@@ -40,8 +41,9 @@ const MemberNode = ({ member, depth = 0 }: { member: TreeNode, depth?: number })
                 <div className="flex-1 flex justify-between items-center pr-2">
                     <div>
                         <h4 className="font-semibold text-sm">{member.name} {depth === 0 && "(Director)"}</h4>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="capitalize">{member.category || 'Standard'}</span>
+                        <div className="flex items-center gap-2 text-xs">
+                            <span className="capitalize text-muted-foreground">{member.category || 'Standard'}</span>
+                            <span className="text-emerald-500 font-bold ml-2">Profit: ${member.totalProfit?.toLocaleString() || 0}</span>
                         </div>
                     </div>
 
@@ -76,45 +78,56 @@ export default function NetworkPage() {
 
     useEffect(() => {
         const buildTree = async () => {
-            // Fetch all profiles
-            // For a real huge network, we'd use adjacency list or recursive CTEs in SQL.
-            // For this size, fetching all and building in JS is fine.
-            const { data: profiles, error } = await supabase
+            // 1. Fetch all profiles
+            const { data: profiles, error: pError } = await supabase
                 .from('profiles')
                 .select('id, full_name, category, referrer_id, role');
 
-            if (error || !profiles) {
-                console.error("Error fetching network:", error);
+            if (pError || !profiles) {
+                console.error("Error fetching network profiles:", pError);
                 setLoading(false);
                 return;
             }
 
-            // 1. Find Root (Shaji or whoever has no referrer or is explicitly Shaji)
-            // Assumption: Root has no referrer OR we pick the one named 'Shaji' top level.
-            // Let's assume the user with no referrer is Root. Or we can find by name / role.
-            // Strategy: Build a map.
-            const profileMap: Record<string, TreeNode> = {};
+            // 2. Fetch all daily logs to calculate trading profit
+            const { data: logs } = await supabase.from('daily_logs').select('member_id, profit_amount');
+
+            // 3. Fetch all commissions to calculate referral profit
+            const { data: commissions } = await supabase.from('commissions').select('referrer_id, amount');
+
+            // 4. Calculate profits per member
+            const profitMap: Record<string, number> = {};
+
+            logs?.forEach(l => {
+                profitMap[l.member_id] = (profitMap[l.member_id] || 0) + Number(l.profit_amount);
+            });
+
+            commissions?.forEach(c => {
+                profitMap[c.referrer_id] = (profitMap[c.referrer_id] || 0) + Number(c.amount);
+            });
+
+            // 5. Build TreeNode Map
+            const nodeMap: Record<string, TreeNode> = {};
             profiles.forEach(p => {
-                profileMap[p.id] = {
+                nodeMap[p.id] = {
                     id: p.id,
                     name: p.full_name,
                     children: [],
                     category: p.category,
                     role: p.role,
-                    referrer_id: p.referrer_id
+                    referrer_id: p.referrer_id,
+                    totalProfit: profitMap[p.id] || 0
                 } as TreeNode;
             });
 
             let root: TreeNode | null = null;
 
-            // 2. Link children to parents
+            // 6. Link children to parents
             profiles.forEach(p => {
-                if (p.referrer_id && profileMap[p.referrer_id]) {
-                    profileMap[p.referrer_id].children?.push(profileMap[p.id]);
+                if (p.referrer_id && nodeMap[p.referrer_id]) {
+                    nodeMap[p.referrer_id].children?.push(nodeMap[p.id]);
                 } else {
-                    // Potential root. If multiple, we might need a virtual root.
-                    // For now, take the first one or specific one.
-                    if (!root || p.role === 'leader') root = profileMap[p.id];
+                    if (!root || p.role === 'leader') root = nodeMap[p.id];
                 }
             });
 
