@@ -31,20 +31,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
 
     useEffect(() => {
-        // Check active session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfile(session.user.id);
-            } else {
-                setIsLoading(false);
-            }
-        });
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-            if (session?.user) {
-                fetchProfile(session.user.id);
+            if (currentUser) {
+                // Only fetch if session changed or profile is missing
+                await fetchProfile(currentUser.id);
             } else {
                 setProfile(null);
                 setIsLoading(false);
@@ -55,6 +48,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const fetchProfile = async (userId: string) => {
+        setIsLoading(true);
         try {
             const { data, error } = await supabase
                 .from('profiles')

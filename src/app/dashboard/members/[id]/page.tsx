@@ -3,7 +3,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
     ArrowLeft,
     Calendar,
@@ -175,9 +174,9 @@ export default function MemberDetailPage() {
                             <CardTitle className="text-sm font-medium">Status</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <Badge className={investments.some(i => i.status === 'active') ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}>
+                            <div className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors ${investments.some(i => i.status === 'active') ? 'border-transparent bg-emerald-500 text-white' : 'border-transparent bg-amber-500 text-white'}`}>
                                 {investments.some(i => i.status === 'active') ? 'Active Investor' : 'Inactive'}
-                            </Badge>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
@@ -218,7 +217,9 @@ export default function MemberDetailPage() {
                                     <div key={inv.id} className="p-4 rounded-lg border bg-muted/30 space-y-3">
                                         <div className="flex justify-between items-center">
                                             <span className="font-bold text-lg text-indigo-500">${Number(inv.amount).toLocaleString()}</span>
-                                            <Badge variant="outline" className="capitalize">{inv.status}</Badge>
+                                            <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors text-foreground capitalize">
+                                                {inv.status}
+                                            </div>
                                         </div>
                                         <div className="text-xs text-muted-foreground flex items-center gap-1">
                                             <Calendar className="h-3 w-3" />
