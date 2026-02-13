@@ -28,9 +28,13 @@ export default function GalleryPage() {
 
     useEffect(() => {
         const fetchGlobalStats = async () => {
-            const { data } = await supabase.from('daily_logs').select('profit_amount');
-            const total = data?.reduce((sum, log) => sum + Number(log.profit_amount), 0) || 0;
-            setLifetimeProfit(total);
+            const { data: logs } = await supabase.from('daily_logs').select('profit_amount');
+            const { data: commissions } = await supabase.from('commissions').select('amount');
+
+            const logsTotal = logs?.reduce((sum, log) => sum + Number(log.profit_amount), 0) || 0;
+            const commissionsTotal = commissions?.reduce((sum, com) => sum + Number(com.amount), 0) || 0;
+
+            setLifetimeProfit(logsTotal + commissionsTotal);
         };
         fetchGlobalStats();
     }, []);
@@ -91,7 +95,7 @@ export default function GalleryPage() {
                         </CardHeader>
                         <CardContent>
                             <div className="text-3xl font-bold text-emerald-700">${lifetimeProfit.toLocaleString()}</div>
-                            <p className="text-xs text-emerald-600/70 mt-1">Total earnings since day one</p>
+                            <p className="text-[10px] text-emerald-600/70 mt-1 uppercase tracking-wider font-semibold">Includes Trading & Referrals</p>
                         </CardContent>
                     </Card>
 
