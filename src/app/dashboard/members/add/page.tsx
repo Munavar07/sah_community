@@ -21,6 +21,7 @@ export default function AddMemberPage() {
     const [category, setCategory] = useState("standard");
     const [upline, setUpline] = useState("");
     const [file, setFile] = useState<File | null>(null);
+    const [joinedDate, setJoinedDate] = useState(new Date().toISOString().split('T')[0]);
 
     const [uplines, setUplines] = useState<Profile[]>([]);
     const [loading, setLoading] = useState(false);
@@ -49,6 +50,7 @@ export default function AddMemberPage() {
             formData.append("amount", amount);
             formData.append("category", category);
             formData.append("uplineId", upline);
+            formData.append("joinedDate", joinedDate);
 
             if (file) {
                 formData.append("proof", file);
@@ -168,6 +170,16 @@ export default function AddMemberPage() {
                                             ))}
                                         </SelectContent>
                                     </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="joinedDate">Joined Date</Label>
+                                    <Input
+                                        id="joinedDate"
+                                        type="date"
+                                        value={joinedDate}
+                                        onChange={(e) => setJoinedDate(e.target.value)}
+                                        required
+                                    />
                                 </div>
                             </div>
 

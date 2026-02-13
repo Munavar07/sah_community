@@ -25,10 +25,12 @@ export async function createMemberAction(prevState: unknown, formData: FormData)
     const category = formData.get("category") as string;
     const uplineId = formData.get("uplineId") as string;
     const proofFile = formData.get("proof") as File;
+    const joinedDate = (formData.get("joinedDate") as string) || new Date().toISOString();
 
     let proofUrl = "";
 
     try {
+        // ... (upload logic same)
         // 1. Upload Proof (Admin API - No RLS)
         if (proofFile && proofFile.size > 0) {
             const fileExt = proofFile.name.split('.').pop();
@@ -56,7 +58,7 @@ export async function createMemberAction(prevState: unknown, formData: FormData)
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
-            email_confirm: true, // Auto confirm so they can login immediately
+            email_confirm: true,
             user_metadata: {
                 full_name: fullName,
                 role: 'member'
@@ -76,6 +78,7 @@ export async function createMemberAction(prevState: unknown, formData: FormData)
                 role: 'member',
                 referrer_id: uplineId || null,
                 category,
+                created_at: joinedDate, // Use custom date
                 updated_at: new Date().toISOString()
             });
 
@@ -89,7 +92,8 @@ export async function createMemberAction(prevState: unknown, formData: FormData)
                 amount: amount,
                 status: 'active',
                 proof_url: proofUrl,
-                start_date: new Date().toISOString()
+                start_date: joinedDate, // Use custom date
+                created_at: joinedDate // Use custom date
             });
 
         if (investError) throw investError;
@@ -138,6 +142,7 @@ export async function logProfitAction(prevState: unknown, formData: FormData) {
         const userId = formData.get("userId") as string;
         const profit = parseFloat(formData.get("profit") as string);
         const proofFile = formData.get("proof") as File;
+        const logDate = (formData.get("logDate") as string) || new Date().toISOString().split('T')[0];
 
         if (!userId || userId.length < 32) {
             return { success: false, message: "Invalid User session. Please log in again." };
@@ -172,15 +177,13 @@ export async function logProfitAction(prevState: unknown, formData: FormData) {
             .getPublicUrl(fileName);
 
         // 2. Insert into DB
-        const today = new Date().toISOString().split('T')[0];
-
         const { error: dbError } = await supabaseAdmin
             .from('daily_logs')
             .insert({
                 member_id: userId,
                 profit_amount: profit,
                 screenshot_url: publicUrl,
-                log_date: today
+                log_date: logDate
             });
 
         if (dbError) {

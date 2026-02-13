@@ -16,6 +16,7 @@ export default function LogProfitPage() {
     const { user } = useAuth();
     const [profit, setProfit] = useState("");
     const [file, setFile] = useState<File | null>(null);
+    const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
 
@@ -39,6 +40,7 @@ export default function LogProfitPage() {
             formData.append("userId", user.id);
             formData.append("profit", profit);
             formData.append("proof", file);
+            formData.append("logDate", logDate);
 
             const result = await logProfitAction(null, formData);
 
@@ -91,6 +93,18 @@ export default function LogProfitPage() {
                                     onChange={(e) => setProfit(e.target.value)}
                                     required
                                 />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="logDate">Profit Date</Label>
+                                <Input
+                                    id="logDate"
+                                    type="date"
+                                    value={logDate}
+                                    onChange={(e) => setLogDate(e.target.value)}
+                                    required
+                                />
+                                <p className="text-[10px] text-muted-foreground">Select a past date if you are backfilling missed dividends.</p>
                             </div>
 
                             <div className="space-y-2">

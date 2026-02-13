@@ -2,6 +2,7 @@
 -- Run this in the Supabase SQL Editor.
 
 -- 1. Truncate tables (Cascading to delete related data)
+TRUNCATE TABLE public.commissions CASCADE;
 TRUNCATE TABLE public.daily_logs CASCADE;
 TRUNCATE TABLE public.investments CASCADE;
 TRUNCATE TABLE public.profiles CASCADE;
