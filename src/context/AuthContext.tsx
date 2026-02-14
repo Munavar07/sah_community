@@ -33,14 +33,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         let isMounted = true;
+        const fetchInProgress = { current: false };
 
         const handleProfileFetch = async (userId: string) => {
-            if (lastUserId.current === userId) {
-                if (isMounted) setIsLoading(false);
+            // If we already have this profile or are fetching it, don't start a new one
+            if (profile?.id === userId || fetchInProgress.current) {
                 return;
             }
 
-            lastUserId.current = userId;
+            fetchInProgress.current = true;
             if (isMounted) setIsLoading(true);
 
             try {
@@ -56,17 +57,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         setProfile(null);
                     } else {
                         setProfile(data as Profile);
+                        lastUserId.current = userId;
                     }
                 }
             } catch (err) {
                 console.error("Critical Profile Fetch failure:", err);
                 if (isMounted) setProfile(null);
             } finally {
+                fetchInProgress.current = false;
                 if (isMounted) setIsLoading(false);
             }
         };
 
-        // 1. Initial Session Check (Standard for reliable mount state)
+        // 1. Initial Session Check
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (!isMounted) return;
             const currentUser = session?.user ?? null;
@@ -93,14 +96,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
 
             setUser(currentUser);
-            await handleProfileFetch(currentUser.id);
+            // If the user changed or profile is missing, fetch it
+            if (lastUserId.current !== currentUser.id) {
+                await handleProfileFetch(currentUser.id);
+            }
         });
 
-        // 3. Failsafe Timeout
-        // If for any reason auth hangs (network, tough race condition), force stop loading after 4s
+        // 3. Failsafe Timeout (increased to 8s for reliability)
         const timer = setTimeout(() => {
             if (isMounted) setIsLoading(false);
-        }, 4000);
+        }, 8000);
 
         return () => {
             isMounted = false;
