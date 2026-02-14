@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef, useReducer } from "react";
+import React, { createContext, useContext, useEffect, useRef, useReducer } from "react";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import { Profile } from "@/types";
@@ -88,17 +88,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     .single();
 
                 if (!error) return { data: data as Profile, error: null };
-
-                // If it's a "Not Found" error, don't retry, just return
                 if (error.code === 'PGRST116') return { data: null, error };
 
-                console.warn(`Profile fetch retry ${i + 1}/${retries}...`);
-                if (i < retries - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1))); // Exponential-ish backoff
+                if (i < retries - 1) await new Promise(r => setTimeout(r, 1000));
             } catch (e) {
                 if (i === retries - 1) return { data: null, error: e };
             }
         }
-        return { data: null, error: 'Failed after retries' };
+        return { data: null, error: 'Failed' };
     };
 
     const syncProfile = async (u: User | null) => {
@@ -108,25 +105,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             return;
         }
 
-        // Avoid concurrent syncs for the same user
         if (syncInProgress.current && lastUserId.current === u.id) return;
 
         syncInProgress.current = true;
         lastUserId.current = u.id;
-
-        // If we already have the profile, just stop loading (but we usually want to re-verify)
-        if (state.profile?.id === u.id && !state.isLoading) {
-            syncInProgress.current = false;
-            return;
-        }
 
         dispatch({ type: 'START_LOADING' });
 
         const { data, error } = await fetchWithRetry(u.id);
 
         if (error && error.code !== 'PGRST116') {
-            console.error("Critical profile fetch error:", error);
-            dispatch({ type: 'SET_ERROR', error: "Could not load profile. Please check your connection." });
+            dispatch({ type: 'SET_ERROR', error: "Load failed" });
         } else {
             dispatch({ type: 'SET_AUTH', user: u, profile: data });
         }
@@ -137,59 +126,62 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         let isMounted = true;
 
-        // 1. Initial Session Check with Grace Period
-        const checkInitialSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-
+        // 1. Give Chrome 1 second to settle storage after redirect
+        const initTimer = setTimeout(async () => {
             if (!isMounted) return;
 
-            if (session?.user) {
-                await syncProfile(session.user);
-            } else {
-                // IMPORTANT for Chrome: Give the auth listener 300ms to wake up 
-                // and find a session before we declare "Logged Out".
-                // This prevents the "Redirect to Login" loop.
-                setTimeout(() => {
-                    if (isMounted && !lastUserId.current) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (isMounted) {
+                    if (session?.user) {
+                        await syncProfile(session.user);
+                    } else {
                         dispatch({ type: 'SET_AUTH', user: null, profile: null });
                     }
-                }, 300);
-            }
-        };
-
-        checkInitialSession();
-
-        // 2. Auth Listener
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (isMounted) {
-                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-                    syncProfile(session?.user ?? null);
-                } else if (event === 'SIGNED_OUT') {
-                    dispatch({ type: 'SET_AUTH', user: null, profile: null });
                 }
+            } catch (err) {
+                console.error("Auth init error:", err);
+                if (isMounted) dispatch({ type: 'STOP_LOADING' });
             }
-        });
 
-        // 3. Failsafe (8s)
-        const timer = setTimeout(() => {
-            if (isMounted) dispatch({ type: 'STOP_LOADING' });
-        }, 8000);
+            // 2. Start persistent listener
+            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+                if (isMounted) {
+                    if (['SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED'].includes(event)) {
+                        await syncProfile(session?.user ?? null);
+                    } else if (event === 'SIGNED_OUT') {
+                        dispatch({ type: 'SET_AUTH', user: null, profile: null });
+                    }
+                }
+            });
+
+            (window as any)._authSub = subscription;
+        }, 1000);
+
+        // 3. Failsafe (12s)
+        const failsafeTimer = setTimeout(() => {
+            if (isMounted && state.isLoading) {
+                console.warn("Auth failsafe: Force stopping load");
+                dispatch({ type: 'STOP_LOADING' });
+            }
+        }, 12000);
 
         return () => {
             isMounted = false;
-            subscription.unsubscribe();
-            clearTimeout(timer);
+            clearTimeout(initTimer);
+            clearTimeout(failsafeTimer);
+            if ((window as any)._authSub) {
+                (window as any)._authSub.unsubscribe();
+                delete (window as any)._authSub;
+            }
         };
     }, []);
 
-    const login = async (email: string) => {
-        // Placeholder
-    };
+    const login = async (email: string) => { };
 
     const logout = async () => {
         await supabase.auth.signOut();
         dispatch({ type: 'SET_AUTH', user: null, profile: null });
-        lastUserId.current = null;
         router.push("/login");
     };
 

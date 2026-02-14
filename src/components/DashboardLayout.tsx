@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LayoutDashboard, LogOut, Upload, Users, LineChart, Image as ImageIcon, UserPlus, DollarSign, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function DashboardLayout({
@@ -16,6 +16,12 @@ export default function DashboardLayout({
     const { user, profile, logout, isLoading, refreshProfile, error: authError, hasCheckedSession } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
+    const [showRecovery, setShowRecovery] = useState(false);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setShowRecovery(true), 5000);
+        return () => clearTimeout(timer);
+    }, []);
 
     useEffect(() => {
         // ONLY redirect if we are SURE there is no session
@@ -27,9 +33,26 @@ export default function DashboardLayout({
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+            <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4 p-8">
                 <Loader2 className="animate-spin w-12 h-12 text-primary" />
-                <p className="text-muted-foreground animate-pulse text-sm">Synchronizing your profile...</p>
+                <div className="text-center space-y-2">
+                    <p className="text-muted-foreground animate-pulse text-sm font-medium">Synchronizing your profile...</p>
+                    {showRecovery && (
+                        <div className="pt-8 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                                Sync is taking longer than usual. You can try forcing the dashboard or signing out to reset.
+                            </p>
+                            <div className="flex flex-col gap-2">
+                                <Button size="sm" onClick={() => window.location.reload()}>
+                                    Refresh Page
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={logout} className="text-destructive hover:bg-destructive/10">
+                                    Sign Out & Reset
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         );
     }
