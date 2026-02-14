@@ -12,6 +12,7 @@ type AuthContextType = {
     login: (email: string) => Promise<void>;
     logout: () => Promise<void>;
     isLoading: boolean;
+    hasCheckedSession: boolean;
     refreshProfile: () => Promise<void>;
     error: string | null;
 };
@@ -22,6 +23,7 @@ const AuthContext = createContext<AuthContextType>({
     login: async () => { },
     logout: async () => { },
     isLoading: true,
+    hasCheckedSession: false,
     refreshProfile: async () => { },
     error: null,
 });
@@ -32,6 +34,7 @@ type AuthState = {
     user: User | null;
     profile: Profile | null;
     isLoading: boolean;
+    hasCheckedSession: boolean;
     error: string | null;
 };
 
@@ -40,20 +43,23 @@ type AuthAction =
     | { type: 'SET_AUTH', user: User | null, profile: Profile | null }
     | { type: 'SET_PROFILE', profile: Profile | null }
     | { type: 'SET_ERROR', error: string | null }
-    | { type: 'STOP_LOADING' };
+    | { type: 'STOP_LOADING' }
+    | { type: 'SET_CHECKED' };
 
 function authReducer(state: AuthState, action: AuthAction): AuthState {
     switch (action.type) {
         case 'START_LOADING':
             return { ...state, isLoading: true, error: null };
         case 'SET_AUTH':
-            return { ...state, user: action.user, profile: action.profile, isLoading: false, error: null };
+            return { ...state, user: action.user, profile: action.profile, isLoading: false, hasCheckedSession: true, error: null };
         case 'SET_PROFILE':
-            return { ...state, profile: action.profile, isLoading: false, error: null };
+            return { ...state, profile: action.profile, isLoading: false, hasCheckedSession: true, error: null };
         case 'SET_ERROR':
-            return { ...state, error: action.error, isLoading: false };
+            return { ...state, error: action.error, isLoading: false, hasCheckedSession: true };
         case 'STOP_LOADING':
-            return { ...state, isLoading: false };
+            return { ...state, isLoading: false, hasCheckedSession: true };
+        case 'SET_CHECKED':
+            return { ...state, hasCheckedSession: true };
         default:
             return state;
     }
@@ -64,6 +70,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         user: null,
         profile: null,
         isLoading: true,
+        hasCheckedSession: false,
         error: null
     });
 
@@ -132,12 +139,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         // 1. Initial Session
         supabase.auth.getSession().then(({ data: { session } }) => {
-            if (isMounted) syncProfile(session?.user ?? null);
+            if (isMounted) {
+                if (session?.user) {
+                    syncProfile(session.user);
+                } else {
+                    dispatch({ type: 'SET_AUTH', user: null, profile: null });
+                }
+            }
         });
 
         // 2. Auth Listener
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (isMounted) syncProfile(session?.user ?? null);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            if (isMounted) {
+                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                    syncProfile(session?.user ?? null);
+                } else if (event === 'SIGNED_OUT') {
+                    dispatch({ type: 'SET_AUTH', user: null, profile: null });
+                }
+            }
         });
 
         // 3. Failsafe (8s)
@@ -173,6 +192,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             user: state.user,
             profile: state.profile,
             isLoading: state.isLoading,
+            hasCheckedSession: state.hasCheckedSession,
             login,
             logout,
             refreshProfile,

@@ -13,15 +13,16 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { user, profile, logout, isLoading, refreshProfile, error: authError } = useAuth();
+    const { user, profile, logout, isLoading, refreshProfile, error: authError, hasCheckedSession } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
 
     useEffect(() => {
-        if (!isLoading && !user) {
+        // ONLY redirect if we are SURE there is no session
+        if (!isLoading && hasCheckedSession && !user) {
             router.push("/login");
         }
-    }, [user, isLoading, router]);
+    }, [user, isLoading, hasCheckedSession, router]);
 
 
     if (isLoading) {
