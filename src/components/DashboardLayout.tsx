@@ -28,22 +28,17 @@ export default function DashboardLayout({
         return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>;
     }
 
-    // Handle Orphaned User (Auth exists, Profile missing)
+    // If we shouldn't be here (no user), the useEffect redirects, but return null/loader while waiting
+    if (!user) return null;
+
+    // Still loading profile after user is authenticated
     if (user && !profile) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="text-center space-y-4 max-w-md p-6 border rounded-lg shadow-lg">
-                    <h2 className="text-xl font-bold">Profile Not Found</h2>
-                    <p className="text-muted-foreground">Your account exists but has no profile data. This usually happens if the initial setup failed.</p>
-                    <Button onClick={logout} variant="outline">Sign Out & Try Again</Button>
-                    <Button onClick={() => window.location.reload()}>Retry Loading</Button>
-                </div>
-            </div>
-        );
+        // Give it a moment to load before showing error
+        return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>;
     }
 
-    // If we shouldn't be here (no user), the useEffect redirects, but return null/loader while waiting
-    if (!user || !profile) return null;
+    // Type guard: at this point both user and profile are guaranteed to exist
+    if (!profile) return null;
 
     const leaderLinks = [
         { href: "/dashboard", label: "Master View", icon: LayoutDashboard },
