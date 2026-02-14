@@ -96,9 +96,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             await handleProfileFetch(currentUser.id);
         });
 
+        // 3. Failsafe Timeout
+        // If for any reason auth hangs (network, tough race condition), force stop loading after 4s
+        const timer = setTimeout(() => {
+            if (isMounted) setIsLoading(false);
+        }, 4000);
+
         return () => {
             isMounted = false;
             subscription.unsubscribe();
+            clearTimeout(timer);
         };
     }, []);
 
