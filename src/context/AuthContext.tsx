@@ -34,10 +34,54 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         let isMounted = true;
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const handleProfileFetch = async (userId: string) => {
+            if (lastUserId.current === userId) {
+                if (isMounted) setIsLoading(false);
+                return;
+            }
+
+            lastUserId.current = userId;
+            if (isMounted) setIsLoading(true);
+
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single();
+
+                if (isMounted) {
+                    if (error) {
+                        console.error("Profile fetch error:", error);
+                        setProfile(null);
+                    } else {
+                        setProfile(data as Profile);
+                    }
+                }
+            } catch (err) {
+                console.error("Critical Profile Fetch failure:", err);
+                if (isMounted) setProfile(null);
+            } finally {
+                if (isMounted) setIsLoading(false);
+            }
+        };
+
+        // 1. Initial Session Check (Standard for reliable mount state)
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!isMounted) return;
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
+            if (currentUser) {
+                handleProfileFetch(currentUser.id);
+            } else {
+                setIsLoading(false);
+            }
+        });
+
+        // 2. Auth State Listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             const currentUser = session?.user ?? null;
 
-            // If user logged out or session gone
             if (!currentUser) {
                 if (isMounted) {
                     setUser(null);
@@ -48,35 +92,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 return;
             }
 
-            // If we have a user, handle profile fetch
             setUser(currentUser);
-
-            // Only fetch if it's a new user ID to prevent loops on token refresh
-            if (lastUserId.current !== currentUser.id) {
-                lastUserId.current = currentUser.id;
-
-                // Fetch Profile
-                if (isMounted) setIsLoading(true);
-
-                const { data, error } = await supabase
-                    .from('profiles')
-                    .select('*')
-                    .eq('id', currentUser.id)
-                    .single();
-
-                if (isMounted) {
-                    if (error) {
-                        console.error("Profile fetch error:", error);
-                        setProfile(null);
-                    } else {
-                        setProfile(data as Profile);
-                    }
-                    setIsLoading(false);
-                }
-            } else {
-                // Same user (e.g. token refresh), just make sure we aren't stuck in loading
-                if (isMounted) setIsLoading(false);
-            }
+            await handleProfileFetch(currentUser.id);
         });
 
         return () => {
