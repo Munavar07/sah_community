@@ -137,21 +137,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     useEffect(() => {
         let isMounted = true;
 
-        // 1. Initial Session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (isMounted) {
-                if (session?.user) {
-                    syncProfile(session.user);
-                } else {
-                    dispatch({ type: 'SET_AUTH', user: null, profile: null });
-                }
+        // 1. Initial Session Check with Grace Period
+        const checkInitialSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!isMounted) return;
+
+            if (session?.user) {
+                await syncProfile(session.user);
+            } else {
+                // IMPORTANT for Chrome: Give the auth listener 300ms to wake up 
+                // and find a session before we declare "Logged Out".
+                // This prevents the "Redirect to Login" loop.
+                setTimeout(() => {
+                    if (isMounted && !lastUserId.current) {
+                        dispatch({ type: 'SET_AUTH', user: null, profile: null });
+                    }
+                }, 300);
             }
-        });
+        };
+
+        checkInitialSession();
 
         // 2. Auth Listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
             if (isMounted) {
-                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
                     syncProfile(session?.user ?? null);
                 } else if (event === 'SIGNED_OUT') {
                     dispatch({ type: 'SET_AUTH', user: null, profile: null });
