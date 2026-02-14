@@ -313,75 +313,74 @@ export default function MemberDetailPage() {
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* Withdrawal Logs */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <DollarSign className="h-5 w-5" /> Detailed Withdrawal History
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {data.withdrawals.length > 0 ? data.withdrawals.map((log) => (
+                                <div key={log.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-amber-500/10 p-2 rounded text-amber-500">
+                                            <DollarSign className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-amber-600">-${Number(log.amount).toLocaleString()}</p>
+                                            <p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleDateString()}</p>
+                                        </div>
+                                    </div>
+                                    {log.proof_url && (
+                                        <a href={log.proof_url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline flex items-center gap-1">
+                                            <ImageIcon className="h-3 w-3" /> View Proof
+                                        </a>
+                                    )}
+                                </div>
+                            )) : (
+                                <div className="text-center py-10 text-muted-foreground">No withdrawal records found.</div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Referral History */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Users className="h-5 w-5" /> Referral Earnings Detail
+                        </CardTitle>
+                        <CardDescription>Commissions earned from direct referrals (5% of investment).</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {data.commissions.length > 0 ? data.commissions.map((com) => (
+                                <div key={com.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-amber-500/10 p-2 rounded text-amber-500">
+                                            <TrendingUp className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">
+                                                {com.type === 'manual' ? 'Manual Commission' : `Referral Bonus from ${com.member?.full_name || 'Member'}`}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">{new Date(com.created_at).toLocaleDateString()}</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-amber-600">+${Number(com.amount).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="text-center py-10 text-muted-foreground">No referral commissions earned yet.</div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
-
-            {/* Withdrawal Logs */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5" /> Detailed Withdrawal History
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        {data.withdrawals.length > 0 ? data.withdrawals.map((log) => (
-                            <div key={log.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-amber-500/10 p-2 rounded text-amber-500">
-                                        <DollarSign className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-amber-600">-${Number(log.amount).toLocaleString()}</p>
-                                        <p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleDateString()}</p>
-                                    </div>
-                                </div>
-                                {log.proof_url && (
-                                    <a href={log.proof_url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline flex items-center gap-1">
-                                        <ImageIcon className="h-3 w-3" /> View Proof
-                                    </a>
-                                )}
-                            </div>
-                        )) : (
-                            <div className="text-center py-10 text-muted-foreground">No withdrawal records found.</div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Referral History */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Users className="h-5 w-5" /> Referral Earnings Detail
-                    </CardTitle>
-                    <CardDescription>Commissions earned from direct referrals (5% of investment).</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        {data.commissions.length > 0 ? data.commissions.map((com) => (
-                            <div key={com.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
-                                <div className="flex items-center gap-3">
-                                    <div className="bg-amber-500/10 p-2 rounded text-amber-500">
-                                        <TrendingUp className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <p className="font-medium">
-                                            {com.type === 'manual' ? 'Manual Commission' : `Referral Bonus from ${com.member?.full_name || 'Member'}`}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">{new Date(com.created_at).toLocaleDateString()}</p>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className="font-bold text-amber-600">+${Number(com.amount).toLocaleString()}</p>
-                                </div>
-                            </div>
-                        )) : (
-                            <div className="text-center py-10 text-muted-foreground">No referral commissions earned yet.</div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-    </DashboardLayout >
+        </DashboardLayout>
     );
 }
