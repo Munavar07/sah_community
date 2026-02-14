@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         error: null
     });
 
-    const lastUserId = useRef<string | null>(null);
+    const lastSyncUserId = useRef<string | null>(null);
     const syncInProgress = useRef(false);
     const router = useRouter();
 
@@ -101,21 +101,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const syncProfile = async (u: User | null) => {
         if (!u) {
             dispatch({ type: 'SET_AUTH', user: null, profile: null });
-            lastUserId.current = null;
+            lastSyncUserId.current = null;
             return;
         }
 
-        if (syncInProgress.current && lastUserId.current === u.id) return;
+        if (syncInProgress.current && lastSyncUserId.current === u.id) return;
 
         syncInProgress.current = true;
-        lastUserId.current = u.id;
+        lastSyncUserId.current = u.id;
 
         dispatch({ type: 'START_LOADING' });
 
         const { data, error } = await fetchWithRetry(u.id);
 
         if (error && error.code !== 'PGRST116') {
-            dispatch({ type: 'SET_ERROR', error: "Load failed" });
+            dispatch({ type: 'SET_ERROR', error: "Profile Load failed" });
         } else {
             dispatch({ type: 'SET_AUTH', user: u, profile: data });
         }
@@ -125,55 +125,50 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     useEffect(() => {
         let isMounted = true;
+        const confirmedUser = { current: false };
 
-        // 1. Give Chrome 1 second to settle storage after redirect
-        const initTimer = setTimeout(async () => {
+        // 1. Initial listener - MUST be active immediately to catch quick login events
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (!isMounted) return;
 
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (isMounted) {
-                    if (session?.user) {
-                        await syncProfile(session.user);
-                    } else {
-                        dispatch({ type: 'SET_AUTH', user: null, profile: null });
-                    }
-                }
-            } catch (err) {
-                console.error("Auth init error:", err);
-                if (isMounted) dispatch({ type: 'STOP_LOADING' });
+            if (['SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED'].includes(event)) {
+                confirmedUser.current = true;
+                await syncProfile(session?.user ?? null);
+            } else if (event === 'SIGNED_OUT') {
+                confirmedUser.current = false;
+                dispatch({ type: 'SET_AUTH', user: null, profile: null });
             }
+        });
 
-            // 2. Start persistent listener
-            const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-                if (isMounted) {
-                    if (['SIGNED_IN', 'TOKEN_REFRESHED', 'USER_UPDATED'].includes(event)) {
-                        await syncProfile(session?.user ?? null);
-                    } else if (event === 'SIGNED_OUT') {
-                        dispatch({ type: 'SET_AUTH', user: null, profile: null });
-                    }
-                }
-            });
+        // 2. Initial Session Check (Immediate)
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (isMounted && session?.user) {
+                confirmedUser.current = true;
+                syncProfile(session.user);
+            }
+        });
 
-            (window as any)._authSub = subscription;
-        }, 1000);
+        // 3. The "Chrome Guard": Wait 1.5 seconds before declaring "Logged Out" 
+        // if no session was found by either the listener or getSession.
+        const chromeGuardTimer = setTimeout(() => {
+            if (isMounted && !confirmedUser.current) {
+                // If after 1.5s we still don't have a user, definitively declare we are logged out.
+                dispatch({ type: 'SET_AUTH', user: null, profile: null });
+            }
+        }, 1500);
 
-        // 3. Failsafe (12s)
+        // 4. Global Failsafe (emergency exit)
         const failsafeTimer = setTimeout(() => {
             if (isMounted && state.isLoading) {
-                console.warn("Auth failsafe: Force stopping load");
                 dispatch({ type: 'STOP_LOADING' });
             }
         }, 12000);
 
         return () => {
             isMounted = false;
-            clearTimeout(initTimer);
+            subscription.unsubscribe();
+            clearTimeout(chromeGuardTimer);
             clearTimeout(failsafeTimer);
-            if ((window as any)._authSub) {
-                (window as any)._authSub.unsubscribe();
-                delete (window as any)._authSub;
-            }
         };
     }, []);
 
