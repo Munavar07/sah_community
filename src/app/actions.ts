@@ -142,7 +142,7 @@ export async function logProfitAction(prevState: unknown, formData: FormData) {
         const userId = formData.get("userId") as string;
         const profit = parseFloat(formData.get("profit") as string);
         const proofFile = formData.get("proof") as File;
-        const logDate = (formData.get("logDate") as string) || new Date().toLocaleDateString('en-CA');
+        const logDate = (formData.get("logDate") as string) || new Date().toISOString().split('T')[0];
 
         if (!userId || userId.length < 32) {
             return { success: false, message: "Invalid User session. Please log in again." };

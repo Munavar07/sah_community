@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { LayoutDashboard, LogOut, Upload, Users, LineChart, Image as ImageIcon, UserPlus, DollarSign, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function DashboardLayout({
@@ -13,93 +13,30 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { user, profile, logout, isLoading, refreshProfile, error: authError, hasCheckedSession } = useAuth();
+    const { user, profile, logout, isLoading } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
-    const [showRecovery, setShowRecovery] = useState(false);
 
     useEffect(() => {
-        const timer = setTimeout(() => setShowRecovery(true), 5000);
-        return () => clearTimeout(timer);
-    }, []);
-
-    useEffect(() => {
-        // ONLY redirect if we are SURE there is no session
-        if (!isLoading && hasCheckedSession && !user) {
+        if (!isLoading && !user) {
             router.push("/login");
         }
-    }, [user, isLoading, hasCheckedSession, router]);
+    }, [user, isLoading, router]);
 
 
     if (isLoading) {
-        return (
-            <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4 p-8">
-                <Loader2 className="animate-spin w-12 h-12 text-primary" />
-                <div className="text-center space-y-2">
-                    <p className="text-muted-foreground animate-pulse text-sm font-medium">Synchronizing your profile...</p>
-                    {showRecovery && (
-                        <div className="pt-8 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                                Sync is taking longer than usual. You can try forcing the dashboard or signing out to reset.
-                            </p>
-                            <div className="flex flex-col gap-2">
-                                <Button size="sm" onClick={() => window.location.reload()}>
-                                    Refresh Page
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={logout} className="text-destructive hover:bg-destructive/10">
-                                    Sign Out & Reset
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-        );
+        return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-primary" /></div>;
     }
 
     // Handle Orphaned User (Auth exists, Profile missing)
-    if (user && !profile && !isLoading) {
+    if (user && !profile) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background p-4">
-                <div className="text-center space-y-6 max-w-md p-8 border rounded-2xl shadow-2xl bg-card/50 backdrop-blur-md">
-                    <div className="flex justify-center flex-col items-center gap-2">
-                        <div className="p-3 bg-amber-500/10 rounded-full">
-                            <Users className="w-8 h-8 text-amber-500" />
-                        </div>
-                        <h2 className="text-2xl font-bold tracking-tight">Identity Sync Pending</h2>
-                    </div>
-
-                    <div className="space-y-2 text-sm">
-                        <p className="text-muted-foreground">
-                            We found your account ({user.email}), but your profile data is missing or couldn't be loaded.
-                        </p>
-                        {authError && (
-                            <div className="p-2 bg-destructive/10 text-destructive rounded font-mono text-xs">
-                                Error: {authError}
-                            </div>
-                        )}
-                        <p className="text-[10px] text-muted-foreground border-t pt-2 mt-2">
-                            User ID: <code className="bg-muted px-1 rounded">{user.id}</code>
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 pt-2">
-                        <Button onClick={() => refreshProfile()} className="w-full">
-                            Retry Sync
-                        </Button>
-                        <div className="grid grid-cols-2 gap-2">
-                            <Button onClick={() => window.location.reload()} variant="outline">
-                                Full Reload
-                            </Button>
-                            <Button onClick={logout} variant="outline" className="text-destructive hover:bg-destructive/10">
-                                Sign Out
-                            </Button>
-                        </div>
-                    </div>
-
-                    <div className="text-[10px] text-muted-foreground">
-                        Tip: If this persists, your profile might not have been created yet.
-                    </div>
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <div className="text-center space-y-4 max-w-md p-6 border rounded-lg shadow-lg">
+                    <h2 className="text-xl font-bold">Profile Not Found</h2>
+                    <p className="text-muted-foreground">Your account exists but has no profile data. This usually happens if the initial setup failed.</p>
+                    <Button onClick={logout} variant="outline">Sign Out & Try Again</Button>
+                    <Button onClick={() => window.location.reload()}>Retry Loading</Button>
                 </div>
             </div>
         );
