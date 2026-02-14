@@ -49,7 +49,7 @@ const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-emerald-600">${stats.totalProfit.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Resets every 24hrs</p>
+                    <p className="text-xs text-muted-foreground">Resets at midnight</p>
                 </CardContent>
             </Card>
             <Card>
