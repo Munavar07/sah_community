@@ -29,7 +29,9 @@ export default function DashboardLayout({
     }
 
     // Handle Orphaned User (Auth exists, Profile missing)
-    if (user && !profile) {
+    if (user && !profile && !isLoading) {
+        // We add a tiny safety check here. If we JUST finished loading and profile is null, 
+        // it might be a super fast transition. 
         return (
             <div className="min-h-screen flex items-center justify-center bg-background">
                 <div className="text-center space-y-4 max-w-md p-6 border rounded-lg shadow-lg">

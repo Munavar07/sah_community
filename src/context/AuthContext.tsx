@@ -32,61 +32,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const router = useRouter();
 
     useEffect(() => {
-        // Checking session on mount to prevent flash
-        const initSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) {
-                setUser(session.user);
-                if (lastUserId.current !== session.user.id) {
-                    lastUserId.current = session.user.id;
-                    await fetchProfile(session.user.id);
-                }
-            } else {
-                setIsLoading(false);
-            }
-        };
-        initSession();
+        let isMounted = true;
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             const currentUser = session?.user ?? null;
+
+            // If user logged out or session gone
+            if (!currentUser) {
+                if (isMounted) {
+                    setUser(null);
+                    setProfile(null);
+                    lastUserId.current = null;
+                    setIsLoading(false);
+                }
+                return;
+            }
+
+            // If we have a user, handle profile fetch
             setUser(currentUser);
 
-            if (currentUser) {
-                // Prevent redundant fetches (e.g. on TOKEN_REFRESH)
-                if (lastUserId.current !== currentUser.id) {
-                    lastUserId.current = currentUser.id;
-                    await fetchProfile(currentUser.id);
+            // Only fetch if it's a new user ID to prevent loops on token refresh
+            if (lastUserId.current !== currentUser.id) {
+                lastUserId.current = currentUser.id;
+
+                // Fetch Profile
+                if (isMounted) setIsLoading(true);
+
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', currentUser.id)
+                    .single();
+
+                if (isMounted) {
+                    if (error) {
+                        console.error("Profile fetch error:", error);
+                        setProfile(null);
+                    } else {
+                        setProfile(data as Profile);
+                    }
+                    setIsLoading(false);
                 }
             } else {
-                lastUserId.current = null;
-                setProfile(null);
-                setIsLoading(false);
+                // Same user (e.g. token refresh), just make sure we aren't stuck in loading
+                if (isMounted) setIsLoading(false);
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
     }, []);
-
-    const fetchProfile = async (userId: string) => {
-        setIsLoading(true);
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
-
-            if (error) {
-                console.error("Error fetching profile:", error);
-            } else {
-                setProfile(data as Profile);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     const login = async (email: string) => {
         // For this app, providing a simple way to sign in.
