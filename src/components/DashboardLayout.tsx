@@ -106,17 +106,40 @@ export default function DashboardLayout({
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto">
-                <header className="md:hidden border-b p-4 flex items-center justify-between bg-card">
+            <main className="flex-1 overflow-auto pb-16 md:pb-0">
+                <header className="md:hidden border-b p-4 flex items-center justify-between bg-card sticky top-0 z-10">
                     <h1 className="font-bold">ProfitTracker</h1>
                     <Button size="sm" variant="ghost" onClick={logout}>
                         <LogOut className="h-4 w-4" />
                     </Button>
                 </header>
-                <div className="p-6 md:p-8 max-w-7xl mx-auto">
+                <div className="p-4 md:p-8 max-w-7xl mx-auto">
                     {children}
                 </div>
             </main>
+
+            {/* Mobile Bottom Navigation */}
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-card border-t z-50">
+                <div className="flex justify-around items-center h-16">
+                    {links.map((link) => {
+                        const Icon = link.icon;
+                        const isActive = pathname === link.href;
+                        return (
+                            <Link
+                                key={link.href}
+                                href={link.href}
+                                className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${isActive
+                                        ? "text-primary"
+                                        : "text-muted-foreground"
+                                    }`}
+                            >
+                                <Icon className="h-5 w-5" />
+                                <span className="text-[10px] font-medium">{link.label.split(' ')[0]}</span>
+                            </Link>
+                        );
+                    })}
+                </div>
+            </nav>
         </div>
     );
 }

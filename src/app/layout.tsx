@@ -10,6 +10,14 @@ export const metadata: Metadata = {
   description: 'Track investments and daily profits',
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: '#000000',
+}
+
 export default function RootLayout({
   children,
 }: {
