@@ -25,86 +25,84 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [profile, setProfile] = useState<Profile | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [authState, setAuthState] = useState<{
+        user: User | null;
+        profile: Profile | null;
+        isLoading: boolean;
+    }>({
+        user: null,
+        profile: null,
+        isLoading: true,
+    });
+
     const lastUserId = useRef<string | null>(null);
+    const fetchInProgress = useRef(false);
     const router = useRouter();
 
     useEffect(() => {
         let isMounted = true;
-        const fetchInProgress = { current: false };
 
-        const handleProfileFetch = async (userId: string) => {
-            // If we already have this profile or are fetching it, don't start a new one
-            if (profile?.id === userId || fetchInProgress.current) {
+        const syncProfile = async (u: User | null) => {
+            if (!u) {
+                if (isMounted) {
+                    setAuthState({ user: null, profile: null, isLoading: false });
+                    lastUserId.current = null;
+                }
                 return;
             }
 
+            // If we are already mid-fetch for this user, don't start another
+            if (fetchInProgress.current && lastUserId.current === u.id) return;
+
             fetchInProgress.current = true;
-            if (isMounted) setIsLoading(true);
+            lastUserId.current = u.id;
 
             try {
                 const { data, error } = await supabase
                     .from('profiles')
                     .select('*')
-                    .eq('id', userId)
+                    .eq('id', u.id)
                     .single();
 
                 if (isMounted) {
                     if (error) {
                         console.error("Profile fetch error:", error);
-                        setProfile(null);
+                        setAuthState({ user: u, profile: null, isLoading: false });
                     } else {
-                        setProfile(data as Profile);
-                        lastUserId.current = userId;
+                        setAuthState({ user: u, profile: data as Profile, isLoading: false });
                     }
                 }
             } catch (err) {
-                console.error("Critical Profile Fetch failure:", err);
-                if (isMounted) setProfile(null);
+                console.error("Critical Profile sync failure:", err);
+                if (isMounted) setAuthState({ user: u, profile: null, isLoading: false });
             } finally {
                 fetchInProgress.current = false;
-                if (isMounted) setIsLoading(false);
             }
         };
 
-        // 1. Initial Session Check
+        // 1. Initial Load
         supabase.auth.getSession().then(({ data: { session } }) => {
-            if (!isMounted) return;
-            const currentUser = session?.user ?? null;
-            setUser(currentUser);
-            if (currentUser) {
-                handleProfileFetch(currentUser.id);
-            } else {
-                setIsLoading(false);
-            }
-        });
-
-        // 2. Auth State Listener
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            const currentUser = session?.user ?? null;
-
-            if (!currentUser) {
-                if (isMounted) {
-                    setUser(null);
-                    setProfile(null);
-                    lastUserId.current = null;
-                    setIsLoading(false);
+            if (isMounted) {
+                if (session?.user) {
+                    syncProfile(session.user);
+                } else {
+                    setAuthState({ user: null, profile: null, isLoading: false });
                 }
-                return;
-            }
-
-            setUser(currentUser);
-            // If the user changed or profile is missing, fetch it
-            if (lastUserId.current !== currentUser.id) {
-                await handleProfileFetch(currentUser.id);
             }
         });
 
-        // 3. Failsafe Timeout (increased to 8s for reliability)
+        // 2. Auth Listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (isMounted) {
+                syncProfile(session?.user ?? null);
+            }
+        });
+
+        // 3. Failsafe (increased to 8s)
         const timer = setTimeout(() => {
-            if (isMounted) setIsLoading(false);
+            if (isMounted) {
+                setAuthState(prev => ({ ...prev, isLoading: false }));
+            }
         }, 8000);
 
         return () => {
@@ -115,24 +113,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }, []);
 
     const login = async (email: string) => {
-        // For this app, providing a simple way to sign in.
-        // In reality, users should use Magic Link or Password.
-        // We will assume Magic Link for simplicity of implementation or 
-        // let the user handle the strict auth flow on the dedicated page.
-
-        // This function is mainly a placeholder for the context consumer interaction
-        // The actual login happens in the Login page components.
+        // Implementation placeholder
     };
 
     const logout = async () => {
         await supabase.auth.signOut();
-        setUser(null);
-        setProfile(null);
+        setAuthState({ user: null, profile: null, isLoading: false });
+        lastUserId.current = null;
         router.push("/login");
     };
 
     return (
-        <AuthContext.Provider value={{ user, profile, login, logout, isLoading }}>
+        <AuthContext.Provider value={{
+            user: authState.user,
+            profile: authState.profile,
+            isLoading: authState.isLoading,
+            login,
+            logout
+        }}>
             {children}
         </AuthContext.Provider>
     );
