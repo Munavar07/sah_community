@@ -294,7 +294,9 @@ export default function MemberDetailPage() {
                                             <TrendingUp className="h-4 w-4" />
                                         </div>
                                         <div>
-                                            <p className="font-medium">Referral Bonus from <span className="text-indigo-500">{com.member?.full_name || 'Member'}</span></p>
+                                            <p className="font-medium">
+                                                {com.type === 'manual' ? 'Manual Commission' : `Referral Bonus from ${com.member?.full_name || 'Member'}`}
+                                            </p>
                                             <p className="text-xs text-muted-foreground">{new Date(com.created_at).toLocaleDateString()}</p>
                                         </div>
                                     </div>

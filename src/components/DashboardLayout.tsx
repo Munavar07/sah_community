@@ -43,6 +43,7 @@ export default function DashboardLayout({
     const leaderLinks = [
         { href: "/dashboard", label: "Master View", icon: LayoutDashboard },
         { href: "/dashboard/members/add", label: "Add Member", icon: UserPlus },
+        { href: "/dashboard/commissions/add", label: "Add Commission", icon: DollarSign },
         { href: "/dashboard/network", label: "Network Tree", icon: Users },
         { href: "/dashboard/gallery", label: "Profit Gallery", icon: ImageIcon },
     ];
@@ -129,8 +130,8 @@ export default function DashboardLayout({
                                 key={link.href}
                                 href={link.href}
                                 className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${isActive
-                                        ? "text-primary"
-                                        : "text-muted-foreground"
+                                    ? "text-primary"
+                                    : "text-muted-foreground"
                                     }`}
                             >
                                 <Icon className="h-5 w-5" />

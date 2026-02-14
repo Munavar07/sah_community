@@ -202,3 +202,55 @@ export async function logProfitAction(prevState: unknown, formData: FormData) {
     }
 }
 
+export async function addManualCommissionAction(prevState: unknown, formData: FormData) {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            return { success: false, message: "Server Error: Missing Database Configuration" };
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const referrerId = formData.get("referrerId") as string;
+        const amount = parseFloat(formData.get("amount") as string);
+        const description = formData.get("description") as string;
+        const commissionDate = (formData.get("commissionDate") as string) || new Date().toISOString();
+
+        if (!referrerId || referrerId.length < 32) {
+            return { success: false, message: "Invalid member selected." };
+        }
+
+        if (isNaN(amount) || amount <= 0) {
+            return { success: false, message: "Invalid commission amount." };
+        }
+
+        // Insert manual commission
+        const { error: dbError } = await supabaseAdmin
+            .from('commissions')
+            .insert({
+                referrer_id: referrerId,
+                member_id: null, // No specific member for external referrals
+                amount: amount,
+                type: 'manual',
+                created_at: commissionDate
+            });
+
+        if (dbError) {
+            return { success: false, message: `Database Error: ${dbError.message}` };
+        }
+
+        revalidatePath("/dashboard/members");
+        revalidatePath("/dashboard/network");
+
+        return { success: true, message: "Success! Commission added." };
+
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("MANUAL COMMISSION ERROR:", error);
+        return { success: false, message: "Critical Server Error. Please try again later." };
+    }
+}
