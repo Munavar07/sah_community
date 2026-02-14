@@ -49,7 +49,7 @@ const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-emerald-600">${stats.totalProfit.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Resets at 12 AM daily</p>
+                    <p className="text-xs text-muted-foreground">Resets every 24hrs</p>
                 </CardContent>
             </Card>
             <Card>
@@ -179,7 +179,7 @@ export default function DashboardPage() {
             try {
                 if (profile.role === 'leader') {
                     // Admin: Aggregated data
-                    const today = new Date().toLocaleDateString('en-CA');
+                    const today = new Date().toISOString().split('T')[0];
 
                     const { data: invData } = await supabase.from('investments').select('amount');
                     const { data: logData } = await supabase.from('daily_logs').select('profit_amount, member_id, log_date');
@@ -191,12 +191,12 @@ export default function DashboardPage() {
                     const todayLogs = logData?.filter(l => l.log_date?.startsWith(today)) || [];
                     const totalProfToday = todayLogs.reduce((sum, item) => sum + Number(item.profit_amount), 0);
 
-                    // Identify members (exclude leaders and members created in last 24h)
-                    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                    const members = profileData?.filter(p =>
-                        p.role === 'member' &&
-                        new Date(p.created_at || 0) < oneDayAgo
-                    ) || [];
+                    // Identify members (exclude leaders and members created today)
+                    const members = profileData?.filter(p => {
+                        if (p.role !== 'member') return false;
+                        const memberDate = p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : '';
+                        return memberDate !== today; // Exclude members created today
+                    }) || [];
                     const loggedMemberIds = new Set(todayLogs.map(l => l.member_id));
 
                     const pendingMembers = members
@@ -218,7 +218,7 @@ export default function DashboardPage() {
                     const totalProf = logData?.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
 
                     // Check if logged today
-                    const today = new Date().toLocaleDateString('en-CA');
+                    const today = new Date().toISOString().split('T')[0];
                     const hasLoggedToday = logData?.some(l => l.log_date === today);
 
                     setStats({
