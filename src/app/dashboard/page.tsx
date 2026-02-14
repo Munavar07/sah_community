@@ -213,9 +213,12 @@ export default function DashboardPage() {
                     // Member: Personal data
                     const { data: invData } = await supabase.from('investments').select('amount').eq('member_id', user.id);
                     const { data: logData } = await supabase.from('daily_logs').select('profit_amount, log_date').eq('member_id', user.id);
+                    const { data: comData } = await supabase.from('commissions').select('amount').eq('referrer_id', user.id);
 
                     const totalInv = invData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
-                    const totalProf = logData?.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
+                    const tradingProf = logData?.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
+                    const commissionProf = comData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
+                    const totalProf = tradingProf + commissionProf;
 
                     // Check if logged today
                     const today = new Date().toISOString().split('T')[0];

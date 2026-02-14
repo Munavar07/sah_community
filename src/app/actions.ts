@@ -228,12 +228,12 @@ export async function addManualCommissionAction(prevState: unknown, formData: Fo
             return { success: false, message: "Invalid commission amount." };
         }
 
-        // Insert manual commission
+        // Insert manual commission (member_id required by schema - use referrer_id for manual/bonus commissions with no referred member in system)
         const { error: dbError } = await supabaseAdmin
             .from('commissions')
             .insert({
                 referrer_id: referrerId,
-                member_id: null, // No specific member for external referrals
+                member_id: referrerId,
                 amount: amount,
                 type: 'manual',
                 created_at: commissionDate
