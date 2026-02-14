@@ -248,9 +248,85 @@ export async function addManualCommissionAction(prevState: unknown, formData: Fo
 
         return { success: true, message: "Success! Commission added." };
 
+
     } catch (err: unknown) {
         const error = err as Error;
         console.error("MANUAL COMMISSION ERROR:", error);
+        return { success: false, message: "Critical Server Error. Please try again later." };
+    }
+}
+
+export async function createWithdrawalAction(prevState: unknown, formData: FormData) {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            return { success: false, message: "Server Error: Missing Database Configuration" };
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const userId = formData.get("userId") as string;
+        const amount = parseFloat(formData.get("amount") as string);
+        const proofFile = formData.get("proof") as File;
+
+        if (!userId || userId.length < 32) {
+            return { success: false, message: "Invalid User session. Please log in again." };
+        }
+
+        if (isNaN(amount) || amount <= 0) {
+            return { success: false, message: "Invalid withdrawal amount entered." };
+        }
+
+        if (!proofFile || proofFile.size === 0) {
+            return { success: false, message: "A proof screenshot is required." };
+        }
+
+        // 1. Upload Proof to Storage matches 'proofs' bucket usage
+        const fileExt = proofFile.name.split('.').pop();
+        const fileName = `withdrawal-${userId}-${Date.now()}.${fileExt}`;
+        const arrayBuffer = await proofFile.arrayBuffer();
+
+        const { error: uploadError } = await supabaseAdmin.storage
+            .from('proofs') // Reusing proofs bucket or create 'withdrawals' bucket? Plan said upload proof. Let's use 'proofs' for now or 'results'. 'proofs' fits payment proof logic.
+            .upload(fileName, Buffer.from(arrayBuffer), {
+                contentType: proofFile.type,
+                upsert: true
+            });
+
+        if (uploadError) {
+            return { success: false, message: `Upload Error: ${uploadError.message}` };
+        }
+
+        const { data: { publicUrl } } = supabaseAdmin.storage
+            .from('proofs')
+            .getPublicUrl(fileName);
+
+        // 2. Insert into DB
+        const { error: dbError } = await supabaseAdmin
+            .from('withdrawals')
+            .insert({
+                member_id: userId,
+                amount: amount,
+                proof_url: publicUrl
+            });
+
+        if (dbError) {
+            return { success: false, message: `Database Error: ${dbError.message}` };
+        }
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/invest");
+        revalidatePath("/dashboard/members");
+
+        return { success: true, message: "Success! Withdrawal request submit." };
+
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("WITHDRAWAL ERROR:", error);
         return { success: false, message: "Critical Server Error. Please try again later." };
     }
 }

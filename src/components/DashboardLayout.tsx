@@ -51,7 +51,8 @@ export default function DashboardLayout({
     const memberLinks = [
         { href: "/dashboard", label: "My Dashboard", icon: LayoutDashboard },
         { href: "/dashboard/log", label: "Log Profit", icon: LineChart },
-        { href: "/dashboard/invest", label: "My Investment", icon: DollarSign },
+        { href: "/dashboard/withdraw", label: "Withdraw Funds", icon: DollarSign },
+        { href: "/dashboard/invest", label: "My Investment", icon: Users },
     ];
 
     const links = profile.role === "leader" ? leaderLinks : memberLinks;

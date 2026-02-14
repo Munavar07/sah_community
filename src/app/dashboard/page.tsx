@@ -16,7 +16,9 @@ interface DashboardStats {
     memberCount?: number;
     dailyStatus?: string;
     hasActiveInvestment?: boolean;
-    pendingMembers?: string[]; // Names of members who haven't logged today
+    pendingMembers?: string[];
+    totalWithdrawn?: number;
+    activeBalance?: number;
 }
 
 const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
@@ -141,6 +143,29 @@ const MemberDashboard = ({ stats }: { stats: DashboardStats }) => (
             </Card>
         </div>
 
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Withdrawn</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-amber-600">${(stats.totalWithdrawn || 0).toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">Successful withdrawals</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Active Balance</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-emerald-600">${(stats.activeBalance || 0).toLocaleString()}</div>
+                    <p className="text-xs text-muted-foreground">Available for withdrawal</p>
+                </CardContent>
+            </Card>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-1">
             <Card className="border-dashed flex flex-col items-center justify-center p-12 text-center space-y-4">
                 <div className="bg-emerald-500/10 p-4 rounded-full">
@@ -214,11 +239,15 @@ export default function DashboardPage() {
                     const { data: invData } = await supabase.from('investments').select('amount').eq('member_id', user.id);
                     const { data: logData } = await supabase.from('daily_logs').select('profit_amount, log_date').eq('member_id', user.id);
                     const { data: comData } = await supabase.from('commissions').select('amount').eq('referrer_id', user.id);
+                    const { data: withdrawData } = await supabase.from('withdrawals').select('amount').eq('member_id', user.id);
 
                     const totalInv = invData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
                     const tradingProf = logData?.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
                     const commissionProf = comData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
+                    const totalWithdrawn = withdrawData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
+
                     const totalProf = tradingProf + commissionProf;
+                    const activeBalance = totalProf - totalWithdrawn;
 
                     // Check if logged today
                     const today = new Date().toISOString().split('T')[0];
@@ -227,7 +256,9 @@ export default function DashboardPage() {
                     setStats({
                         totalInvestment: totalInv,
                         totalProfit: totalProf,
-                        dailyStatus: hasLoggedToday ? 'Completed' : 'Pending'
+                        dailyStatus: hasLoggedToday ? 'Completed' : 'Pending',
+                        totalWithdrawn,
+                        activeBalance
                     });
                 }
             } catch (error) {

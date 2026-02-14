@@ -28,8 +28,11 @@ interface MemberDetail {
     investments: any[];
     logs: any[];
     commissions: any[];
+    withdrawals: any[];
     totalProfit: number;
     totalCommissions: number;
+    totalWithdrawn: number;
+    activeBalance: number;
 }
 
 export default function MemberDetailPage() {
@@ -79,18 +82,32 @@ export default function MemberDetailPage() {
                     .eq('referrer_id', id)
                     .order('created_at', { ascending: false });
 
-                if (cError) throw cError;
+                // 5. Fetch Withdrawals
+                const { data: withdrawals, error: wError } = await supabase
+                    .from('withdrawals')
+                    .select('*')
+                    .eq('member_id', id)
+                    .order('created_at', { ascending: false });
+
+                if (wError) throw wError;
 
                 const tradingProfit = logs?.reduce((sum, log) => sum + Number(log.profit_amount), 0) || 0;
                 const totalCommissions = commissions?.reduce((sum, com) => sum + Number(com.amount), 0) || 0;
+                const totalWithdrawn = withdrawals?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
+
+                const totalProfit = tradingProfit + totalCommissions;
+                const activeBalance = totalProfit - totalWithdrawn;
 
                 setData({
                     profile: profile as any,
                     investments: investments || [],
                     logs: logs || [],
                     commissions: commissions || [],
-                    totalProfit: tradingProfit + totalCommissions,
-                    totalCommissions
+                    withdrawals: withdrawals || [],
+                    totalProfit,
+                    totalCommissions,
+                    totalWithdrawn,
+                    activeBalance
                 });
             } catch (err) {
                 console.error("Error fetching member details:", err);
@@ -178,6 +195,26 @@ export default function MemberDetailPage() {
                             <Badge className={investments.some(i => i.status === 'active') ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}>
                                 {investments.some(i => i.status === 'active') ? 'Active Investor' : 'Inactive'}
                             </Badge>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="grid gap-6 md:grid-cols-2">
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">Total Withdrawn</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-amber-600">${data.totalWithdrawn.toLocaleString()}</div>
+                        </CardContent>
+                    </Card>
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">Active Balance</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-emerald-600">${data.activeBalance.toLocaleString()}</div>
+                            <p className="text-[10px] text-muted-foreground mt-1">Available for withdrawal</p>
                         </CardContent>
                     </Card>
                 </div>
@@ -276,41 +313,75 @@ export default function MemberDetailPage() {
                         </CardContent>
                     </Card>
                 </div>
+            </div>
 
-                {/* Referral History */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Users className="h-5 w-5" /> Referral Earnings Detail
-                        </CardTitle>
-                        <CardDescription>Commissions earned from direct referrals (5% of investment).</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {data.commissions.length > 0 ? data.commissions.map((com) => (
-                                <div key={com.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-amber-500/10 p-2 rounded text-amber-500">
-                                            <TrendingUp className="h-4 w-4" />
-                                        </div>
-                                        <div>
-                                            <p className="font-medium">
-                                                {com.type === 'manual' ? 'Manual Commission' : `Referral Bonus from ${com.member?.full_name || 'Member'}`}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">{new Date(com.created_at).toLocaleDateString()}</p>
-                                        </div>
+            {/* Withdrawal Logs */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <DollarSign className="h-5 w-5" /> Detailed Withdrawal History
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {data.withdrawals.length > 0 ? data.withdrawals.map((log) => (
+                            <div key={log.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-amber-500/10 p-2 rounded text-amber-500">
+                                        <DollarSign className="h-4 w-4" />
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-amber-600">+${Number(com.amount).toLocaleString()}</p>
+                                    <div>
+                                        <p className="font-medium text-amber-600">-${Number(log.amount).toLocaleString()}</p>
+                                        <p className="text-xs text-muted-foreground">{new Date(log.created_at).toLocaleDateString()}</p>
                                     </div>
                                 </div>
-                            )) : (
-                                <div className="text-center py-10 text-muted-foreground">No referral commissions earned yet.</div>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </DashboardLayout>
+                                {log.proof_url && (
+                                    <a href={log.proof_url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline flex items-center gap-1">
+                                        <ImageIcon className="h-3 w-3" /> View Proof
+                                    </a>
+                                )}
+                            </div>
+                        )) : (
+                            <div className="text-center py-10 text-muted-foreground">No withdrawal records found.</div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Referral History */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" /> Referral Earnings Detail
+                    </CardTitle>
+                    <CardDescription>Commissions earned from direct referrals (5% of investment).</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-4">
+                        {data.commissions.length > 0 ? data.commissions.map((com) => (
+                            <div key={com.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-amber-500/10 p-2 rounded text-amber-500">
+                                        <TrendingUp className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium">
+                                            {com.type === 'manual' ? 'Manual Commission' : `Referral Bonus from ${com.member?.full_name || 'Member'}`}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">{new Date(com.created_at).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-bold text-amber-600">+${Number(com.amount).toLocaleString()}</p>
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="text-center py-10 text-muted-foreground">No referral commissions earned yet.</div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    </DashboardLayout >
     );
 }
