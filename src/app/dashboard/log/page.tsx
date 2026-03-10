@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import { Loader2, CheckCircle, Upload } from "lucide-react";
+import { Loader2, CheckCircle, Upload, Sparkles } from "lucide-react";
 import { logProfitAction } from "@/app/actions";
+import { extractProfitAmount } from "@/app/ai-actions";
 
 
 export default function LogProfitPage() {
@@ -18,7 +19,9 @@ export default function LogProfitPage() {
     const [file, setFile] = useState<File | null>(null);
     const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0]);
     const [loading, setLoading] = useState(false);
+    const [aiLoading, setAiLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,12 +54,44 @@ export default function LogProfitPage() {
             setMessage(result.message);
             setProfit("");
             setFile(null);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
         } catch (err) {
             const error = err as Error;
             console.error("Submit Error:", error);
             setMessage(`Error: ${error.message}`);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAICalculate = async () => {
+        if (!file) {
+            setMessage("Error: Please select a screenshot first.");
+            return;
+        }
+
+        setAiLoading(true);
+        setMessage(null);
+
+        try {
+            const formData = new FormData();
+            formData.append("proof", file);
+
+            const result = await extractProfitAmount(null, formData);
+
+            if (result.success && result.amount > 0) {
+                setProfit(result.amount.toString());
+                setMessage(result.message || "AI successfully calculated the profit.");
+            } else {
+                setMessage(`AI Error: ${result.message}`);
+            }
+        } catch (error: any) {
+            console.error("AI Calculation Error:", error);
+            setMessage(`Error: ${error.message || "Failed to process image with AI."}`);
+        } finally {
+            setAiLoading(false);
         }
     };
 
@@ -114,12 +149,25 @@ export default function LogProfitPage() {
                                         id="result"
                                         type="file"
                                         accept="image/*"
+                                        ref={fileInputRef}
                                         onChange={(e) => setFile(e.target.files?.[0] || null)}
                                         required
                                         className="pl-9"
                                     />
                                     <Upload className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
                                 </div>
+                                {file && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full mt-2 border-indigo-200 text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300"
+                                        onClick={handleAICalculate}
+                                        disabled={aiLoading}
+                                    >
+                                        {aiLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                        {aiLoading ? "Analyzing Image..." : "Calculate Profit with AI"}
+                                    </Button>
+                                )}
                             </div>
 
                             <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
