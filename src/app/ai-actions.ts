@@ -37,7 +37,7 @@ export async function extractProfitAmount(prevState: any, formData: FormData) {
 
         // Call the Gemini model
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-1.5-flash",
             contents: [
                 {
                     role: "user",
@@ -59,19 +59,19 @@ export async function extractProfitAmount(prevState: any, formData: FormData) {
         });
 
         const responseText = response.text || "{}";
-        
+
         try {
             const parsedData = JSON.parse(responseText.trim());
             const total = parsedData.total;
 
             if (typeof total === 'number' && !isNaN(total)) {
-                 return {
+                return {
                     success: true,
                     amount: total,
                     message: "Profit successfully calculated by AI."
                 };
             } else {
-                 return {
+                return {
                     success: false,
                     amount: 0,
                     message: "AI could not determine a valid total amount."
@@ -79,12 +79,12 @@ export async function extractProfitAmount(prevState: any, formData: FormData) {
             }
 
         } catch (parseError) {
-             console.error("Failed to parse Gemini JSON:", responseText);
-             return {
+            console.error("Failed to parse Gemini JSON:", responseText);
+            return {
                 success: false,
                 amount: 0,
                 message: "AI returned an invalid format."
-             };
+            };
         }
 
     } catch (error: any) {
