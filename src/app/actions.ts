@@ -376,3 +376,47 @@ export async function editProfitLogAction(prevState: unknown, formData: FormData
     }
 }
 
+export async function editCommissionAction(prevState: unknown, formData: FormData) {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            return { success: false, message: "Server Error: Missing Database Configuration" };
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const commissionId = formData.get("commissionId") as string;
+        const newAmount = parseFloat(formData.get("newAmount") as string);
+
+        if (!commissionId) {
+            return { success: false, message: "Commission ID is missing." };
+        }
+
+        if (isNaN(newAmount)) {
+            return { success: false, message: "Invalid amount entered." };
+        }
+
+        const { error: dbError } = await supabaseAdmin
+            .from('commissions')
+            .update({ amount: newAmount })
+            .eq('id', commissionId);
+
+        if (dbError) {
+            return { success: false, message: `Database Error: ${dbError.message}` };
+        }
+
+        revalidatePath("/dashboard/members");
+        revalidatePath("/dashboard/network");
+
+        return { success: true, message: "Success! Commission updated." };
+
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("EDIT COMMISSION ERROR:", error);
+        return { success: false, message: "Critical Server Error. Please try again later." };
+    }
+}

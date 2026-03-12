@@ -23,7 +23,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
-import { editProfitLogAction } from "@/app/actions";
+import { editProfitLogAction, editCommissionAction } from "@/app/actions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,6 +52,11 @@ export default function MemberDetailPage() {
     const [editingLog, setEditingLog] = useState<any | null>(null);
     const [editAmount, setEditAmount] = useState<string>("");
     const [savingEdit, setSavingEdit] = useState(false);
+
+    // Edit Commission State
+    const [editingCommission, setEditingCommission] = useState<any | null>(null);
+    const [editCommissionAmount, setEditCommissionAmount] = useState<string>("");
+    const [savingCommissionEdit, setSavingCommissionEdit] = useState(false);
 
     useEffect(() => {
         const fetchMemberData = async () => {
@@ -190,6 +195,48 @@ export default function MemberDetailPage() {
             alert("Failed to update log.");
         } finally {
             setSavingEdit(false);
+        }
+    };
+
+    const handleEditCommissionSave = async () => {
+        if (!editingCommission || !editCommissionAmount) return;
+        setSavingCommissionEdit(true);
+        try {
+            const formData = new FormData();
+            formData.append("commissionId", editingCommission.id);
+            formData.append("newAmount", editCommissionAmount);
+
+            const result = await editCommissionAction(null, formData);
+            if (result.success) {
+                // Update local state to immediately show changes
+                setData(prev => {
+                    if (!prev) return prev;
+                    const updatedCommissions = prev.commissions.map(c =>
+                        c.id === editingCommission.id ? { ...c, amount: parseFloat(editCommissionAmount) } : c
+                    );
+
+                    const newTotalCommissions = updatedCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
+                    const tradingProfit = prev.totalProfit - prev.totalCommissions;
+                    const newTotalProfit = tradingProfit + newTotalCommissions;
+                    const newActiveBalance = newTotalProfit - prev.totalWithdrawn;
+
+                    return {
+                        ...prev,
+                        commissions: updatedCommissions,
+                        totalCommissions: newTotalCommissions,
+                        totalProfit: newTotalProfit,
+                        activeBalance: newActiveBalance
+                    };
+                });
+                setEditingCommission(null);
+            } else {
+                alert(result.message);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Failed to update commission.");
+        } finally {
+            setSavingCommissionEdit(false);
         }
     };
 
@@ -447,7 +494,7 @@ export default function MemberDetailPage() {
                         <CardDescription>Commissions earned from direct referrals (5% of investment).</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="space-y-4">
+                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                             {data.commissions.length > 0 ? data.commissions.map((com) => (
                                 <div key={com.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
                                     <div className="flex items-center gap-3">
@@ -461,8 +508,21 @@ export default function MemberDetailPage() {
                                             <p className="text-xs text-muted-foreground">{new Date(com.created_at).toLocaleDateString()}</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-amber-600">+${Number(com.amount).toLocaleString()}</p>
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-right">
+                                            <p className="font-bold text-amber-600">+${Number(com.amount).toLocaleString()}</p>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                                            onClick={() => {
+                                                setEditingCommission(com);
+                                                setEditCommissionAmount(com.amount.toString());
+                                            }}
+                                        >
+                                            <Edit className="h-3 w-3 mr-1" /> Edit
+                                        </Button>
                                     </div>
                                 </div>
                             )) : (
@@ -471,6 +531,34 @@ export default function MemberDetailPage() {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Edit Commission Modal */}
+                <Dialog open={!!editingCommission} onOpenChange={(open: boolean) => !open && setEditingCommission(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Edit Commission</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-commission-amount">Corrected Amount ($)</Label>
+                                <Input
+                                    id="edit-commission-amount"
+                                    type="number"
+                                    step="0.01"
+                                    value={editCommissionAmount}
+                                    onChange={(e) => setEditCommissionAmount(e.target.value)}
+                                    placeholder="Enter correct amount"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setEditingCommission(null)} disabled={savingCommissionEdit}>Cancel</Button>
+                            <Button onClick={handleEditCommissionSave} disabled={savingCommissionEdit || !editCommissionAmount}>
+                                {savingCommissionEdit ? "Saving..." : "Save Changes"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </DashboardLayout>
     );
