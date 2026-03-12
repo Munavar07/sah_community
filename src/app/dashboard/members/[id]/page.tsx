@@ -15,13 +15,18 @@ import {
     Image as ImageIcon,
     FileText,
     ChevronRight,
-    Loader2
+    Loader2,
+    Edit
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
+import { editProfitLogAction } from "@/app/actions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface MemberDetail {
     profile: Profile & { referrer?: { full_name: string } };
@@ -42,6 +47,11 @@ export default function MemberDetailPage() {
 
     const [data, setData] = useState<MemberDetail | null>(null);
     const [loading, setLoading] = useState(true);
+
+    // Edit Log State
+    const [editingLog, setEditingLog] = useState<any | null>(null);
+    const [editAmount, setEditAmount] = useState<string>("");
+    const [savingEdit, setSavingEdit] = useState(false);
 
     useEffect(() => {
         const fetchMemberData = async () => {
@@ -142,6 +152,46 @@ export default function MemberDetailPage() {
 
     const { profile, investments, logs, totalProfit } = data;
     const totalInvested = investments.reduce((sum, inv) => sum + Number(inv.amount), 0);
+
+    const handleEditSave = async () => {
+        if (!editingLog || !editAmount) return;
+        setSavingEdit(true);
+        try {
+            const formData = new FormData();
+            formData.append("logId", editingLog.id);
+            formData.append("newAmount", editAmount);
+
+            const result = await editProfitLogAction(null, formData);
+            if (result.success) {
+                // Update local state to immediately show changes
+                setData(prev => {
+                    if (!prev) return prev;
+                    const updatedLogs = prev.logs.map(l =>
+                        l.id === editingLog.id ? { ...l, profit_amount: parseFloat(editAmount) } : l
+                    );
+
+                    const newTradingProfit = updatedLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
+                    const newTotalProfit = newTradingProfit + prev.totalCommissions;
+                    const newActiveBalance = newTotalProfit - prev.totalWithdrawn;
+
+                    return {
+                        ...prev,
+                        logs: updatedLogs,
+                        totalProfit: newTotalProfit,
+                        activeBalance: newActiveBalance
+                    };
+                });
+                setEditingLog(null);
+            } else {
+                alert(result.message);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Failed to update log.");
+        } finally {
+            setSavingEdit(false);
+        }
+    };
 
     return (
         <DashboardLayout>
@@ -288,7 +338,7 @@ export default function MemberDetailPage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-4">
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                                 {logs.length > 0 ? logs.map((log) => (
                                     <div key={log.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
                                         <div className="flex items-center gap-3">
@@ -300,11 +350,24 @@ export default function MemberDetailPage() {
                                                 <p className="text-xs text-muted-foreground">{new Date(log.log_date).toLocaleDateString()}</p>
                                             </div>
                                         </div>
-                                        {log.screenshot_url && (
-                                            <a href={log.screenshot_url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline flex items-center gap-1">
-                                                <ImageIcon className="h-3 w-3" /> View Result
-                                            </a>
-                                        )}
+                                        <div className="flex items-center gap-3">
+                                            {log.screenshot_url && (
+                                                <a href={log.screenshot_url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline flex items-center gap-1">
+                                                    <ImageIcon className="h-3 w-3" /> View Result
+                                                </a>
+                                            )}
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                                                onClick={() => {
+                                                    setEditingLog(log);
+                                                    setEditAmount(log.profit_amount.toString());
+                                                }}
+                                            >
+                                                <Edit className="h-3 w-3 mr-1" /> Edit
+                                            </Button>
+                                        </div>
                                     </div>
                                 )) : (
                                     <div className="text-center py-10 text-muted-foreground">No profit logs found.</div>
@@ -313,6 +376,34 @@ export default function MemberDetailPage() {
                         </CardContent>
                     </Card>
                 </div>
+
+                {/* Edit Modal */}
+                <Dialog open={!!editingLog} onOpenChange={(open: boolean) => !open && setEditingLog(null)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Edit Profit Log</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit-amount">Corrected Profit Amount ($)</Label>
+                                <Input
+                                    id="edit-amount"
+                                    type="number"
+                                    step="0.01"
+                                    value={editAmount}
+                                    onChange={(e) => setEditAmount(e.target.value)}
+                                    placeholder="Enter correct amount"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setEditingLog(null)} disabled={savingEdit}>Cancel</Button>
+                            <Button onClick={handleEditSave} disabled={savingEdit || !editAmount}>
+                                {savingEdit ? "Saving..." : "Save Changes"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Withdrawal Logs */}
                 <Card>
