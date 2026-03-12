@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2, CheckCircle, Upload, Sparkles } from "lucide-react";
@@ -22,10 +22,30 @@ export default function LogProfitPage() {
     const [aiLoading, setAiLoading] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [existingDates, setExistingDates] = useState<string[]>([]);
+
+    useEffect(() => {
+        const fetchDates = async () => {
+            if (!user?.id) return;
+            const { data } = await supabase
+                .from('daily_logs')
+                .select('log_date')
+                .eq('member_id', user.id);
+            if (data) {
+                setExistingDates(data.map(log => log.log_date));
+            }
+        };
+        fetchDates();
+    }, [user?.id]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return;
+
+        if (existingDates.includes(logDate)) {
+            const isConfirmed = window.confirm(`You already have a profit log for ${new Date(logDate).toLocaleDateString()}.\n\nAre you sure you want to add another one for this same date?`);
+            if (!isConfirmed) return;
+        }
 
         setLoading(true);
         setMessage(null);
@@ -57,6 +77,12 @@ export default function LogProfitPage() {
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
+
+            // Re-fetch existing dates after successful submission
+            if (!existingDates.includes(logDate)) {
+                setExistingDates(prev => [...prev, logDate]);
+            }
+
         } catch (err) {
             const error = err as Error;
             console.error("Submit Error:", error);
