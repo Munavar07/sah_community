@@ -330,3 +330,49 @@ export async function createWithdrawalAction(prevState: unknown, formData: FormD
         return { success: false, message: "Critical Server Error. Please try again later." };
     }
 }
+
+export async function editProfitLogAction(prevState: unknown, formData: FormData) {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            return { success: false, message: "Server Error: Missing Database Configuration" };
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const logId = formData.get("logId") as string;
+        const newAmount = parseFloat(formData.get("newAmount") as string);
+
+        if (!logId) {
+            return { success: false, message: "Log ID is missing." };
+        }
+
+        if (isNaN(newAmount)) {
+            return { success: false, message: "Invalid amount entered." };
+        }
+
+        const { error: dbError } = await supabaseAdmin
+            .from('daily_logs')
+            .update({ profit_amount: newAmount })
+            .eq('id', logId);
+
+        if (dbError) {
+            return { success: false, message: `Database Error: ${dbError.message}` };
+        }
+
+        revalidatePath("/dashboard/members");
+        revalidatePath("/dashboard/network");
+
+        return { success: true, message: "Success! Profit log updated." };
+
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("EDIT PROFIT ERROR:", error);
+        return { success: false, message: "Critical Server Error. Please try again later." };
+    }
+}
+
