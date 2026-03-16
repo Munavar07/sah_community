@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, Users, Activity, AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -19,6 +20,7 @@ interface DashboardStats {
     pendingMembers?: string[];
     totalWithdrawn?: number;
     activeBalance?: number;
+    chartData?: { date: string, profit: number }[];
 }
 
 const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
@@ -88,18 +90,48 @@ const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
             </Card>
         )}
 
-        <Card className="h-[200px] flex flex-col items-center justify-center border-dashed">
-            <div className="text-center space-y-4">
-                <div className="bg-muted/50 p-4 rounded-full inline-block">
-                    <Activity className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <div>
-                    <h3 className="text-lg font-medium">Network Oversight</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto mt-1">
-                        You are viewing aggregated data for your entire trading community.
-                    </p>
-                </div>
-            </div>
+        <Card className="col-span-full">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5" /> Network Overall Profit History
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                {stats.chartData && stats.chartData.length > 0 ? (
+                    <div className="h-[300px] w-full mt-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={stats.chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} stroke="#888888" />
+                                <YAxis fontSize={12} tickLine={false} axisLine={false} stroke="#888888" tickFormatter={(value) => `$${value}`} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background)' }}
+                                    itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="profit"
+                                    stroke="#10b981"
+                                    strokeWidth={3}
+                                    dot={{ r: 4, fill: '#10b981', strokeWidth: 2 }}
+                                    activeDot={{ r: 6 }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                ) : (
+                    <div className="h-[200px] flex flex-col items-center justify-center text-center space-y-4">
+                        <div className="bg-muted/50 p-4 rounded-full inline-block">
+                            <Activity className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-medium">Network Oversight</h3>
+                            <p className="text-muted-foreground max-w-sm mx-auto mt-1">
+                                No profit data available yet.
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
         </Card>
     </div>
 );
@@ -228,11 +260,26 @@ export default function DashboardPage() {
                         .filter(m => !loggedMemberIds.has(m.id))
                         .map(m => m.full_name || "Unknown Member");
 
+                    // Aggregate logs by date for the overall profit chart
+                    const logsByDate = logData?.reduce((acc: any, log: any) => {
+                        const date = log.log_date;
+                        acc[date] = (acc[date] || 0) + Number(log.profit_amount);
+                        return acc;
+                    }, {});
+
+                    const chartData = Object.keys(logsByDate || {})
+                        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+                        .map(date => ({
+                            date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                            profit: logsByDate[date]
+                        }));
+
                     setStats({
                         totalInvestment: totalInv,
                         totalProfit: totalProfToday,
                         memberCount: members.length,
-                        pendingMembers
+                        pendingMembers,
+                        chartData
                     });
                 } else {
                     // Member: Personal data
