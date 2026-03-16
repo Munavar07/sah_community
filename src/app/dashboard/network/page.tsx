@@ -2,12 +2,15 @@
 
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, ChevronRight, Download } from "lucide-react";
+import { Users, ChevronRight, Download, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
 import Link from "next/link";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 
 interface TreeNode extends Partial<Profile> {
@@ -60,9 +63,20 @@ const MemberNode = ({ member }: { member: TreeNode }) => {
 
 export default function NetworkPage() {
     const [treeData, setTreeData] = useState<TreeNode | null>(null);
-    const [allProfiles, setAllProfiles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [exporting, setExporting] = useState(false);
+
+    // Raw Data State for Reports
+    const [rawProfiles, setRawProfiles] = useState<any[]>([]);
+    const [rawLogs, setRawLogs] = useState<any[]>([]);
+    const [rawCommissions, setRawCommissions] = useState<any[]>([]);
+    const [rawInvestments, setRawInvestments] = useState<any[]>([]);
+    const [rawWithdrawals, setRawWithdrawals] = useState<any[]>([]);
+
+    // Export Modal State
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportStartDate, setExportStartDate] = useState("");
+    const [exportEndDate, setExportEndDate] = useState("");
 
     useEffect(() => {
         const buildTree = async () => {
@@ -144,7 +158,12 @@ export default function NetworkPage() {
                 }
             });
 
-            setAllProfiles(exportList);
+            setRawProfiles(profiles);
+            setRawLogs(logs || []);
+            setRawCommissions(commissions || []);
+            setRawInvestments(investments || []);
+            setRawWithdrawals(withdrawals || []);
+
             setTreeData(root);
             setLoading(false);
         };
@@ -153,33 +172,112 @@ export default function NetworkPage() {
     }, []);
 
     const handleExportCSV = () => {
-        if (allProfiles.length === 0) return;
+        if (rawProfiles.length === 0) return;
         setExporting(true);
 
-        const headers = Object.keys(allProfiles[0]);
+        const start = exportStartDate ? new Date(exportStartDate).getTime() : 0;
+        const end = exportEndDate ? new Date(exportEndDate).getTime() + 86400000 : Infinity;
+
+        // Filter the raw data for the specific period
+        const filteredLogs = rawLogs.filter(l => {
+            const t = new Date(l.log_date).getTime();
+            return t >= start && t <= end;
+        });
+
+        const filteredCommissions = rawCommissions.filter(c => {
+            const t = new Date(c.created_at).getTime();
+            return t >= start && t <= end;
+        });
+
+        const filteredInvestments = rawInvestments.filter(i => {
+            const t = new Date(i.created_at).getTime();
+            return t >= start && t <= end;
+        });
+
+        const filteredWithdrawals = rawWithdrawals.filter(w => {
+            const t = new Date(w.created_at).getTime();
+            return t >= start && t <= end;
+        });
+
+        // All-Time Data pre-aggregation
+        const allTimeLogMap: Record<string, number> = {};
+        const allTimeComMap: Record<string, number> = {};
+        const allTimeInvMap: Record<string, number> = {};
+        const allTimeWithMap: Record<string, number> = {};
+
+        rawLogs.forEach(l => { allTimeLogMap[l.member_id] = (allTimeLogMap[l.member_id] || 0) + Number(l.profit_amount); });
+        rawCommissions.forEach(c => { allTimeComMap[c.referrer_id] = (allTimeComMap[c.referrer_id] || 0) + Number(c.amount); });
+        rawInvestments.forEach(i => { allTimeInvMap[i.member_id] = (allTimeInvMap[i.member_id] || 0) + Number(i.amount); });
+        rawWithdrawals.forEach(w => { allTimeWithMap[w.member_id] = (allTimeWithMap[w.member_id] || 0) + Number(w.amount); });
+
+        // Compute summary metrics per profile over the selected period
+        const exportList = rawProfiles.map(p => {
+            const pLogs = filteredLogs.filter(l => l.member_id === p.id);
+            const pCommissions = filteredCommissions.filter(c => c.referrer_id === p.id);
+            const pInvestments = filteredInvestments.filter(i => i.member_id === p.id);
+            const pWithdrawals = filteredWithdrawals.filter(w => w.member_id === p.id);
+
+            const periodTradingProfit = pLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
+            const periodReferralProfit = pCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
+            const periodTotalProfit = periodTradingProfit + periodReferralProfit;
+            const periodInvested = pInvestments.reduce((sum, inv) => sum + Number(inv.amount), 0);
+            const periodWithdrawn = pWithdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
+
+            const allTimeInvestments = allTimeInvMap[p.id] || 0;
+            const allTimeProfit = (allTimeLogMap[p.id] || 0) + (allTimeComMap[p.id] || 0);
+            const allTimeWithdrawals = allTimeWithMap[p.id] || 0;
+            const activeBalance = (allTimeInvestments + allTimeProfit) - allTimeWithdrawals;
+
+            return {
+                Name: p.full_name,
+                Role: p.role,
+                Category: p.category || 'Standard',
+                "Period Investments": periodInvested,
+                "Period Trading Profit": periodTradingProfit,
+                "Period Referral Profit": periodReferralProfit,
+                "Period Total Profit": periodTotalProfit,
+                "Period Withdrawals": periodWithdrawn,
+                "All-Time Investments": allTimeInvestments,
+                "All-Time Profit": allTimeProfit,
+                "All-Time Withdrawals": allTimeWithdrawals,
+                "Current Active Balance": activeBalance
+            };
+        });
+
+        const headers = Object.keys(exportList[0]);
         const csvContent = [
+            `Comprehensive Network Report: ${exportStartDate || 'All Time'} to ${exportEndDate || 'Today'}`,
+            '', // blank line
+            // ... Then the actual headers and data
             headers.join(','),
-            ...allProfiles.map(row => headers.map(h => `"${row[h] || 0}"`).join(','))
+            ...exportList.map(row => headers.map((h: any) => `"${(row as any)[h] || 0}"`).join(','))
         ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `all_members_report_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute("download", `comprehensive_network_report.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
         setExporting(false);
+        setIsExportModalOpen(false);
     };
 
     return (
         <DashboardLayout>
             <div className="space-y-6">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Network Hierarchy</h2>
-                    <p className="text-muted-foreground">Visual structure of the organization.</p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-3xl font-bold tracking-tight">Network Hierarchy</h2>
+                        <p className="text-muted-foreground">Visual structure of the organization.</p>
+                    </div>
+                    <Button onClick={() => setIsExportModalOpen(true)} className="flex items-center">
+                        {exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                        Export Comprehensive Report
+                    </Button>
                 </div>
 
                 <Card className="min-h-[600px] overflow-auto">
@@ -201,6 +299,44 @@ export default function NetworkPage() {
                         )}
                     </CardContent>
                 </Card>
+
+                {/* Export Report Modal */}
+                <Dialog open={isExportModalOpen} onOpenChange={setIsExportModalOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Export Comprehensive Network Report</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <p className="text-sm text-muted-foreground">Select a date range to filter the performance metrics. Leave blank to generate an all-time report.</p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="start-date">Start Date</Label>
+                                    <Input
+                                        id="start-date"
+                                        type="date"
+                                        value={exportStartDate}
+                                        onChange={(e) => setExportStartDate(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="end-date">End Date</Label>
+                                    <Input
+                                        id="end-date"
+                                        type="date"
+                                        value={exportEndDate}
+                                        onChange={(e) => setExportEndDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsExportModalOpen(false)}>Cancel</Button>
+                            <Button onClick={handleExportCSV} disabled={exporting}>
+                                {exporting ? 'Generating...' : 'Download Master Report'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </DashboardLayout>
     );
