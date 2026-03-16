@@ -60,6 +60,11 @@ export default function MemberDetailPage() {
     const [editCommissionAmount, setEditCommissionAmount] = useState<string>("");
     const [savingCommissionEdit, setSavingCommissionEdit] = useState(false);
 
+    // Export Modal State
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportStartDate, setExportStartDate] = useState("");
+    const [exportEndDate, setExportEndDate] = useState("");
+
     useEffect(() => {
         const fetchMemberData = async () => {
             if (!id) return;
@@ -243,21 +248,64 @@ export default function MemberDetailPage() {
     };
 
     const handleExportCSV = () => {
-        if (!data || data.logs.length === 0) return;
+        if (!data) return;
 
-        const csvContent = [
-            "Date,Profit Amount ($),Screenshot URL",
-            ...data.logs.map(log => `"${new Date(log.log_date).toLocaleDateString()}","${log.profit_amount}","${log.screenshot_url || ''}"`)
-        ].join('\n');
+        const start = exportStartDate ? new Date(exportStartDate).getTime() : 0;
+        const end = exportEndDate ? new Date(exportEndDate).getTime() + 86400000 : Infinity;
+
+        const filteredLogs = data.logs.filter(l => {
+            const t = new Date(l.log_date).getTime();
+            return t >= start && t <= end;
+        });
+
+        const periodProfit = filteredLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
+        const uniqueDays = new Set(filteredLogs.map(l => l.log_date)).size;
+        const avgDailyProfit = uniqueDays > 0 ? (periodProfit / uniqueDays).toFixed(2) : "0.00";
+
+        const totalInvested = data.investments.reduce((sum, i) => sum + Number(i.amount), 0);
+        const totalWithdrawn = data.withdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
+
+        let csvContent = `Member Report: ${profile.full_name}\n`;
+        csvContent += `Report Created,${new Date().toLocaleDateString()}\n\n`;
+
+        csvContent += `--- OVERALL ACCOUNT SUMMARY ---\n`;
+        csvContent += `Total Invested (All Time),$${totalInvested}\n`;
+        csvContent += `Total Withdrawn (All Time),$${totalWithdrawn}\n`;
+        csvContent += `Current Active Balance,$${data.activeBalance}\n\n`;
+
+        csvContent += `--- SELECTED PERIOD SUMMARY ---\n`;
+        csvContent += `Period,${exportStartDate || 'Beginning'} to ${exportEndDate || 'Today'}\n`;
+        csvContent += `Total Profit in Period,$${periodProfit}\n`;
+        csvContent += `Average Daily Profit,$${avgDailyProfit}\n\n`;
+
+        csvContent += `--- TRANSACTION HISTORY (IN PERIOD) ---\n`;
+        csvContent += `Date,Type,Amount\n`;
+
+        const allTransactions: any[] = [];
+
+        data.investments.forEach(i => allTransactions.push({ date: new Date(i.created_at).toISOString().split('T')[0], type: 'Investment', amount: i.amount }));
+        data.logs.forEach(l => allTransactions.push({ date: new Date(l.log_date).toISOString().split('T')[0], type: 'Profit Log', amount: l.profit_amount }));
+        data.withdrawals.forEach(w => allTransactions.push({ date: new Date(w.created_at).toISOString().split('T')[0], type: 'Withdrawal', amount: w.amount }));
+
+        const finalTransactions = allTransactions.filter(t => {
+            const time = new Date(t.date).getTime();
+            return time >= start && time <= end;
+        }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+        finalTransactions.forEach(t => {
+            csvContent += `"${t.date}","${t.type}","$${t.amount}"\n`;
+        });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `${(profile.full_name || 'Member').replace(/\\s+/g, '_')}_profit_logs.csv`);
+        link.setAttribute("download", `${(profile.full_name || 'Member').replace(/\\s+/g, '_')}_detailed_report.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+
+        setIsExportModalOpen(false);
     };
 
     // Prepare chart data
@@ -271,11 +319,11 @@ export default function MemberDetailPage() {
     return (
         <DashboardLayout>
             <div className="space-y-6">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 w-full">
                     <Button variant="outline" size="icon" onClick={() => router.back()}>
                         <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <div>
+                    <div className="flex-1">
                         <h2 className="text-3xl font-bold tracking-tight">{profile.full_name}</h2>
                         <div className="flex items-center gap-2 text-muted-foreground mt-1">
                             <span className="capitalize">{profile.role}</span>
@@ -283,7 +331,16 @@ export default function MemberDetailPage() {
                             <span className="capitalize">{profile.category || 'Standard'} Member</span>
                         </div>
                     </div>
+                    <Button onClick={() => setIsExportModalOpen(true)} className="hidden sm:flex">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export Report
+                    </Button>
                 </div>
+                {/* Mobile export button */}
+                <Button onClick={() => setIsExportModalOpen(true)} className="w-full sm:hidden">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export Report
+                </Button>
 
                 <div className="grid gap-6 md:grid-cols-4">
                     {/* Key Stats */}
@@ -447,10 +504,6 @@ export default function MemberDetailPage() {
                                 <CardTitle className="flex items-center gap-2">
                                     <TrendingUp className="h-5 w-5" /> Recent Profit Logs
                                 </CardTitle>
-                                <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={logs.length === 0}>
-                                    <Download className="h-4 w-4 mr-2" />
-                                    Export CSV
-                                </Button>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
@@ -492,6 +545,42 @@ export default function MemberDetailPage() {
                         </Card>
                     </div>
                 </div>
+
+                {/* Export Report Modal */}
+                <Dialog open={isExportModalOpen} onOpenChange={setIsExportModalOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Export Member Report</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <p className="text-sm text-muted-foreground">Select a date range to filter the report. Leave blank to include all history.</p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="start-date">Start Date</Label>
+                                    <Input
+                                        id="start-date"
+                                        type="date"
+                                        value={exportStartDate}
+                                        onChange={(e) => setExportStartDate(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="end-date">End Date</Label>
+                                    <Input
+                                        id="end-date"
+                                        type="date"
+                                        value={exportEndDate}
+                                        onChange={(e) => setExportEndDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsExportModalOpen(false)}>Cancel</Button>
+                            <Button onClick={handleExportCSV}>Download Report</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Edit Modal */}
                 <Dialog open={!!editingLog} onOpenChange={(open: boolean) => !open && setEditingLog(null)}>
