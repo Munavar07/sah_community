@@ -2,7 +2,7 @@
 
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, ChevronRight, ChevronDown, Download } from "lucide-react";
+import { Users, ChevronRight, Download } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
@@ -18,58 +18,43 @@ interface TreeNode extends Partial<Profile> {
 }
 
 // Recursive Member Component
-const MemberNode = ({ member, depth = 0 }: { member: TreeNode, depth?: number }) => {
-    const [isExpanded, setIsExpanded] = useState(true);
+const MemberNode = ({ member }: { member: TreeNode }) => {
     const hasChildren = member.children && member.children.length > 0;
 
     return (
-        <div className="select-none">
-            <div
-                className={`flex items-center gap-3 p-3 rounded-lg border transition-colors hover:bg-accent/50 cursor-pointer ${depth === 0 ? "bg-indigo-500/10 border-indigo-500/30 mb-4" : "bg-card mb-2 ml-6"
-                    }`}
-                onClick={() => setIsExpanded(!isExpanded)}
-                style={{ marginLeft: depth > 0 ? `${depth * 24}px` : 0 }}
-            >
-                {hasChildren ? (
-                    isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                ) : <div className="w-4" />}
-
-                <div className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold ${depth === 0 ? "bg-indigo-500 text-white" : "bg-emerald-500 text-white"
-                    }`}>
+        <li>
+            <div className="relative mx-auto flex flex-col items-center justify-center p-4 border rounded-xl bg-card min-w-[160px] max-w-[200px] shadow-sm hover:shadow-md transition-all z-10 hover:-translate-y-1">
+                <div className={`h-12 w-12 rounded-full flex items-center justify-center text-xl font-bold mb-3 shadow-inner ${member.role === 'leader' ? "bg-indigo-500 text-white ring-4 ring-indigo-500/20" : "bg-emerald-500 text-white ring-4 ring-emerald-500/20"}`}>
                     {member.name?.charAt(0) || 'U'}
                 </div>
+                <h4 className="font-semibold text-sm text-center line-clamp-1" title={member.name}>{member.name}</h4>
 
-                <div className="flex-1 flex justify-between items-center pr-2">
-                    <div>
-                        <h4 className="font-semibold text-sm">{member.name} {depth === 0 && "(Director)"}</h4>
-                        <div className="flex items-center gap-2 text-xs">
-                            <span className="capitalize text-muted-foreground">{member.category || 'Standard'}</span>
-                            <span className="text-emerald-500 font-bold ml-2">Profit: ${member.totalProfit?.toLocaleString() || 0}</span>
-                        </div>
-                    </div>
-
-                    <Link
-                        href={`/dashboard/members/${member.id}`}
-                        onClick={(e: React.MouseEvent) => e.stopPropagation()} // Prevent expansion toggle
-                        className="p-2 hover:bg-indigo-500/10 rounded-full text-indigo-500 transition-colors"
-                        title="View Full Details"
-                    >
-                        <ChevronRight className="w-5 h-5" />
-                    </Link>
+                <div className="flex flex-col items-center gap-1 mt-2 w-full">
+                    <span className="capitalize text-[10px] text-muted-foreground px-2 py-0.5 bg-accent rounded-full border">
+                        {member.role === 'leader' ? 'Director' : (member.category || 'Standard')}
+                    </span>
+                    <span className="text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full text-xs font-bold mt-2">
+                        +${member.totalProfit?.toLocaleString() || 0}
+                    </span>
                 </div>
 
+                <Link
+                    href={`/dashboard/members/${member.id}`}
+                    className="absolute top-2 right-2 p-1.5 hover:bg-indigo-500/10 rounded-full text-muted-foreground hover:text-indigo-500 transition-colors"
+                    title="View Profile Details"
+                >
+                    <ChevronRight className="w-4 h-4" />
+                </Link>
             </div>
 
-            {isExpanded && hasChildren && (
-                <div className="relative">
-                    <div className="absolute left-[20px] top-0 bottom-0 w-px bg-border -z-10" style={{ left: `${(depth * 24) + 20}px` }} />
-
-                    {member.children?.map((child: TreeNode) => (
-                        <MemberNode key={child.id} member={child} depth={depth + 1} />
+            {hasChildren && (
+                <ul>
+                    {member.children!.map((child: TreeNode) => (
+                        <MemberNode key={child.id} member={child} />
                     ))}
-                </div>
+                </ul>
             )}
-        </div>
+        </li>
     );
 };
 
@@ -199,15 +184,17 @@ export default function NetworkPage() {
 
                 <Card className="min-h-[600px] overflow-auto">
                     <CardHeader>
-                        <CardTitle>Organization Tree</CardTitle>
-                        <CardDescription>Click items to expand/collapse branches.</CardDescription>
+                        <CardTitle>Organization Chart</CardTitle>
+                        <CardDescription>Visual map of the entire network hierarchy.</CardDescription>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="overflow-auto pb-10">
                         {loading ? (
                             <div className="text-center py-10">Loading network...</div>
                         ) : treeData ? (
-                            <div className="max-w-2xl">
-                                <MemberNode member={treeData} />
+                            <div className="org-tree w-max min-w-full flex justify-center p-4">
+                                <ul>
+                                    <MemberNode member={treeData} />
+                                </ul>
                             </div>
                         ) : (
                             <div className="text-center py-10">No network data found.</div>
