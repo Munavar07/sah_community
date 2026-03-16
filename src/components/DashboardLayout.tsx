@@ -59,9 +59,9 @@ export default function DashboardLayout({
     const links = profile.role === "leader" ? leaderLinks : memberLinks;
 
     return (
-        <div className="flex min-h-screen bg-background">
+        <div className="flex h-screen overflow-hidden bg-background">
             {/* Sidebar */}
-            <aside className="w-64 border-r bg-card hidden md:flex flex-col">
+            <aside className="w-64 border-r bg-card hidden md:flex flex-col flex-shrink-0">
                 <div className="p-6">
                     <h1 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-600 bg-clip-text text-transparent">
                         ProfitTracker
@@ -71,7 +71,7 @@ export default function DashboardLayout({
                     </p>
                 </div>
 
-                <nav className="flex-1 px-4 space-y-2">
+                <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
                     {links.map((link) => {
                         const Icon = link.icon;
                         const isActive = pathname === link.href;
