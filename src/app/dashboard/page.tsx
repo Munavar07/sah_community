@@ -240,6 +240,7 @@ export default function DashboardPage() {
 
                     const { data: invData } = await supabase.from('investments').select('amount');
                     const { data: logData } = await supabase.from('daily_logs').select('profit_amount, member_id, log_date');
+                    const { data: comData } = await supabase.from('commissions').select('amount, created_at');
                     const { data: profileData } = await supabase.from('profiles').select('id, full_name, role, created_at');
 
                     const totalInv = invData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
@@ -260,12 +261,17 @@ export default function DashboardPage() {
                         .filter(m => !loggedMemberIds.has(m.id))
                         .map(m => m.full_name || "Unknown Member");
 
-                    // Aggregate logs by date for the overall profit chart
+                    // Aggregate logs and commissions by date for the overall profit chart
                     const logsByDate = logData?.reduce((acc: any, log: any) => {
                         const date = log.log_date;
                         acc[date] = (acc[date] || 0) + Number(log.profit_amount);
                         return acc;
-                    }, {});
+                    }, {}) || {};
+
+                    comData?.forEach((com: any) => {
+                        const date = new Date(com.created_at).toISOString().split('T')[0];
+                        logsByDate[date] = (logsByDate[date] || 0) + Number(com.amount);
+                    });
 
                     const chartData = Object.keys(logsByDate || {})
                         .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())

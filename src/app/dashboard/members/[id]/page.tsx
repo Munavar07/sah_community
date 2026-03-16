@@ -257,9 +257,19 @@ export default function MemberDetailPage() {
             const t = new Date(l.log_date).getTime();
             return t >= start && t <= end;
         });
+        const filteredCommissions = data.commissions.filter(c => {
+            const t = new Date(c.created_at).getTime();
+            return t >= start && t <= end;
+        });
 
-        const periodProfit = filteredLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
-        const uniqueDays = new Set(filteredLogs.map(l => l.log_date)).size;
+        const periodProfit = filteredLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0) +
+            filteredCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
+
+        const uniqueDays = new Set([
+            ...filteredLogs.map(l => l.log_date),
+            ...filteredCommissions.map(c => new Date(c.created_at).toISOString().split('T')[0])
+        ]).size;
+
         const avgDailyProfit = uniqueDays > 0 ? (periodProfit / uniqueDays).toFixed(2) : "0.00";
 
         const totalInvested = data.investments.reduce((sum, i) => sum + Number(i.amount), 0);
@@ -284,7 +294,8 @@ export default function MemberDetailPage() {
         const allTransactions: any[] = [];
 
         data.investments.forEach(i => allTransactions.push({ date: new Date(i.created_at).toISOString().split('T')[0], type: 'Investment', amount: i.amount }));
-        data.logs.forEach(l => allTransactions.push({ date: new Date(l.log_date).toISOString().split('T')[0], type: 'Profit Log', amount: l.profit_amount }));
+        data.logs.forEach(l => allTransactions.push({ date: new Date(l.log_date).toISOString().split('T')[0], type: 'Trading Profit', amount: l.profit_amount }));
+        data.commissions.forEach(c => allTransactions.push({ date: new Date(c.created_at).toISOString().split('T')[0], type: 'Referral Commission', amount: c.amount }));
         data.withdrawals.forEach(w => allTransactions.push({ date: new Date(w.created_at).toISOString().split('T')[0], type: 'Withdrawal', amount: w.amount }));
 
         const finalTransactions = allTransactions.filter(t => {
@@ -308,12 +319,23 @@ export default function MemberDetailPage() {
         setIsExportModalOpen(false);
     };
 
-    // Prepare chart data
-    const chartData = [...logs]
-        .sort((a, b) => new Date(a.log_date).getTime() - new Date(b.log_date).getTime())
-        .map(log => ({
-            date: new Date(log.log_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-            profit: Number(log.profit_amount)
+    // Prepare chart data (Logs + Commissions)
+    const logsByDate = logs?.reduce((acc: any, log: any) => {
+        const date = log.log_date;
+        acc[date] = (acc[date] || 0) + Number(log.profit_amount);
+        return acc;
+    }, {}) || {};
+
+    data?.commissions?.forEach((com: any) => {
+        const date = new Date(com.created_at).toISOString().split('T')[0];
+        logsByDate[date] = (logsByDate[date] || 0) + Number(com.amount);
+    });
+
+    const chartData = Object.keys(logsByDate || {})
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+        .map(date => ({
+            date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+            profit: logsByDate[date]
         }));
 
     return (
