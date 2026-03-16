@@ -119,7 +119,7 @@ export default function LoginPage() {
                             <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/25 mb-4">
                                 <TrendingUp className="h-7 w-7 text-white" />
                             </div>
-                            <h1 className="text-2xl font-bold gradient-text mb-1">ProfitTracker</h1>
+                            <h1 className="text-2xl font-bold gradient-text mb-1">SHA Community</h1>
                             <p className="text-muted-foreground text-sm">
                                 {isSignUp ? "Set up your admin access" : "Welcome back to your portal"}
                             </p>

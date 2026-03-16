@@ -81,7 +81,7 @@ export default function DashboardLayout({
                         </div>
                         <div>
                             <h1 className="text-base font-bold gradient-text leading-tight">
-                                ProfitTracker
+                                SHA Community
                             </h1>
                             <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
                                 {isLeader ? "Admin Portal" : "Member Portal"}
@@ -105,13 +105,13 @@ export default function DashboardLayout({
                                 href={link.href}
                                 style={{ animationDelay: `${i * 60}ms` }}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group animate-fade-in-up ${isActive
-                                        ? "bg-emerald-500/15 text-emerald-500 font-semibold shadow-sm border border-emerald-500/20"
-                                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                                    ? "bg-emerald-500/15 text-emerald-500 font-semibold shadow-sm border border-emerald-500/20"
+                                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
                                     }`}
                             >
                                 <div className={`h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${isActive
-                                        ? "bg-emerald-500/20 text-emerald-500"
-                                        : "bg-accent/60 text-muted-foreground group-hover:bg-accent group-hover:text-foreground"
+                                    ? "bg-emerald-500/20 text-emerald-500"
+                                    : "bg-accent/60 text-muted-foreground group-hover:bg-accent group-hover:text-foreground"
                                     }`}>
                                     <Icon className="h-3.5 w-3.5" />
                                 </div>
@@ -133,8 +133,8 @@ export default function DashboardLayout({
                     <div className="flex items-center justify-between p-2 rounded-xl bg-accent/40">
                         <div className="flex items-center gap-2.5 min-w-0">
                             <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0 shadow-inner ${isLeader
-                                    ? 'bg-gradient-to-br from-indigo-500 to-violet-600 ring-2 ring-indigo-500/30'
-                                    : 'bg-gradient-to-br from-emerald-500 to-teal-600 ring-2 ring-emerald-500/30'
+                                ? 'bg-gradient-to-br from-indigo-500 to-violet-600 ring-2 ring-indigo-500/30'
+                                : 'bg-gradient-to-br from-emerald-500 to-teal-600 ring-2 ring-emerald-500/30'
                                 }`}>
                                 {profile.full_name?.charAt(0) || 'U'}
                             </div>
@@ -164,7 +164,7 @@ export default function DashboardLayout({
                         <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xs">
                             PT
                         </div>
-                        <h1 className="font-bold gradient-text text-sm">ProfitTracker</h1>
+                        <h1 className="font-bold gradient-text text-sm">SHA Community</h1>
                     </div>
                     <div className="flex items-center gap-2">
                         <ModeToggle />

@@ -7,8 +7,8 @@ import { ThemeProvider } from '@/components/theme-provider'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Trading Network & Profit Tracker',
-  description: 'Track investments and daily profits',
+  title: 'SHA Community – Profit Tracker',
+  description: 'SHA Community trading network profit tracker',
 }
 
 export const viewport = {
