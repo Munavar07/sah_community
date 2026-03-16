@@ -175,126 +175,120 @@ export default function NetworkPage() {
         if (rawProfiles.length === 0) return;
         setExporting(true);
 
-        const start = exportStartDate || "0000-00-00";
-        const end = exportEndDate || "9999-99-99";
+        try {
+            const start = exportStartDate || "0000-00-00";
+            const end = exportEndDate || "9999-99-99";
 
-        // 1. Calculate Referrals Made (All Time)
-        const referralCounts: Record<string, number> = {};
-        rawProfiles.forEach(p => {
-            if (p.referrer_id) {
-                referralCounts[p.referrer_id] = (referralCounts[p.referrer_id] || 0) + 1;
-            }
-        });
-
-        // 2. Pre-calculate All-Time and Period stats per member
-        const memberStats = rawProfiles.map(p => {
-            const pLogs = rawLogs.filter(l => l.member_id === p.id);
-            const pCommissions = rawCommissions.filter(c => c.referrer_id === p.id);
-            const pInvestments = rawInvestments.filter(i => i.member_id === p.id);
-            const pWithdrawals = rawWithdrawals.filter(w => w.member_id === p.id);
-
-            // Filter for period (using string comparison for log_date and created_at substring)
-            const filteredLogs = pLogs.filter(l => l.log_date >= start && l.log_date <= end);
-            const filteredCommissions = pCommissions.filter(c => {
-                const cDate = new Date(c.created_at).toISOString().split('T')[0];
-                return cDate >= start && cDate <= end;
-            });
-            const filteredInvestments = pInvestments.filter(i => {
-                const iDate = new Date(i.created_at).toISOString().split('T')[0];
-                return iDate >= start && iDate <= end;
-            });
-            const filteredWithdrawals = pWithdrawals.filter(w => {
-                const wDate = new Date(w.created_at).toISOString().split('T')[0];
-                return wDate >= start && wDate <= end;
+            // 1. Calculate All-Time Referral Counts
+            const referralCounts: Record<string, number> = {};
+            rawProfiles.forEach(p => {
+                if (p.referrer_id) {
+                    referralCounts[p.referrer_id] = (referralCounts[p.referrer_id] || 0) + 1;
+                }
             });
 
-            const allTimeTradingProfit = pLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
-            const allTimeReferralProfit = pCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
-            const allTimeTotalProfit = allTimeTradingProfit + allTimeReferralProfit;
-            const allTimeInvestments = pInvestments.reduce((sum, inv) => sum + Number(inv.amount), 0);
-            const allTimeWithdrawals = pWithdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
-            const activeBalance = allTimeTotalProfit - allTimeWithdrawals;
+            // 2. Pre-calculate metrics for each member
+            const memberStats = rawProfiles.map(p => {
+                const pLogs = rawLogs.filter(l => l.member_id === p.id);
+                const pCommissions = rawCommissions.filter(c => c.referrer_id === p.id);
+                const pInvestments = rawInvestments.filter(i => i.member_id === p.id);
+                const pWithdrawals = rawWithdrawals.filter(w => w.member_id === p.id);
 
-            const periodTradingProfit = filteredLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
-            const periodReferralProfit = filteredCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
-            const periodTotalProfit = periodTradingProfit + periodReferralProfit;
-            const periodInvested = filteredInvestments.reduce((sum, inv) => sum + Number(inv.amount), 0);
-            const periodWithdrawn = filteredWithdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
+                const filteredLogs = pLogs.filter(l => l.log_date >= start && l.log_date <= end);
+                const filteredCommissions = pCommissions.filter(c => {
+                    const cDate = new Date(c.created_at).toISOString().split('T')[0];
+                    return cDate >= start && cDate <= end;
+                });
+                const filteredInvestments = pInvestments.filter(i => {
+                    const iDate = new Date(i.created_at).toISOString().split('T')[0];
+                    return iDate >= start && iDate <= end;
+                });
+                const filteredWithdrawals = pWithdrawals.filter(w => {
+                    const wDate = new Date(w.created_at).toISOString().split('T')[0];
+                    return wDate >= start && wDate <= end;
+                });
 
-            // Tier Logic
-            let tier = "❌ Inactive";
-            if (allTimeTotalProfit > 500) tier = "🔥 Top Performer";
-            else if (allTimeTotalProfit >= 50) tier = "✅ Active";
-            else if (allTimeTotalProfit > 0) tier = "⚠️ Low Activity";
+                const allTimeTradingProfit = pLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
+                const allTimeReferralProfit = pCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
+                const allTimeTotalProfit = allTimeTradingProfit + allTimeReferralProfit;
+                const allTimeInvestments = pInvestments.reduce((sum, inv) => sum + Number(inv.amount), 0);
+                const allTimeWithdrawals = pWithdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
+                const activeBalance = allTimeTotalProfit - allTimeWithdrawals;
 
-            return {
-                id: p.id,
-                name: p.full_name,
-                allTimeTotalProfit,
-                allTimeTradingProfit,
-                allTimeReferralProfit,
-                allTimeInvestments,
-                allTimeWithdrawals,
-                activeBalance,
-                periodTradingProfit,
-                periodReferralProfit,
-                periodTotalProfit,
-                periodInvested,
-                periodWithdrawn,
-                referralsMade: referralCounts[p.id] || 0,
-                tier
-            };
-        });
+                const periodTradingProfit = filteredLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
+                const periodReferralProfit = filteredCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
+                const periodTotalProfit = periodTradingProfit + periodReferralProfit;
+                const periodInvested = filteredInvestments.reduce((sum, inv) => sum + Number(inv.amount), 0);
+                const periodWithdrawn = filteredWithdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
 
-        // 3. Rank by Total Profit (Descending)
-        const rankedStats = [...memberStats].sort((a, b) => b.allTimeTotalProfit - a.allTimeTotalProfit);
+                return {
+                    id: p.id,
+                    name: p.full_name,
+                    allTimeTotalProfit,
+                    allTimeTradingProfit,
+                    allTimeReferralProfit,
+                    allTimeInvestments,
+                    allTimeWithdrawals,
+                    activeBalance,
+                    periodTradingProfit,
+                    periodReferralProfit,
+                    periodTotalProfit,
+                    periodInvested,
+                    periodWithdrawn,
+                    referralsCount: referralCounts[p.id] || 0
+                };
+            });
 
-        // 4. Transform to final row objects
-        const exportList = rankedStats.map((s, index) => {
-            const row: any = {
-                "#Rank": index + 1,
-                "Name": s.name,
-                "Performance Tier": s.tier,
-                "Referrals Made": s.referralsMade
-            };
+            const rankedStats = [...memberStats].sort((a, b) => b.allTimeTotalProfit - a.allTimeTotalProfit);
 
-            if (exportStartDate || exportEndDate) {
-                row["Period Trading Profit"] = Number(s.periodTradingProfit).toFixed(2);
-                row["Period Referral Profit"] = Number(s.periodReferralProfit).toFixed(2);
-                row["Period Total Profit"] = Number(s.periodTotalProfit).toFixed(2);
-                row["Period Investments"] = Number(s.periodInvested).toFixed(2);
-                row["Period Withdrawals"] = Number(s.periodWithdrawn).toFixed(2);
-            }
+            const exportList = rankedStats.map((s, index) => {
+                const row: any = {
+                    "#Rank": index + 1,
+                    "Name": s.name,
+                    "Referrals Made": s.referralsCount
+                };
 
-            row["Total Investments (All Time)"] = Number(s.allTimeInvestments).toFixed(2);
-            row["Total Trading Profit (All Time)"] = Number(s.allTimeTradingProfit).toFixed(2);
-            row["Total Referral Profit (All Time)"] = Number(s.allTimeReferralProfit).toFixed(2);
-            row["Total Profit (Trading + Referral)"] = Number(s.allTimeTotalProfit).toFixed(2);
-            row["Total Withdrawals (All Time)"] = Number(s.allTimeWithdrawals).toFixed(2);
-            row["Active Balance"] = Number(s.activeBalance).toFixed(2);
+                if (exportStartDate || exportEndDate) {
+                    row["Period Trading Profit"] = Number(s.periodTradingProfit).toFixed(2);
+                    row["Period Referral Profit"] = Number(s.periodReferralProfit).toFixed(2);
+                    row["Period Total Profit"] = Number(s.periodTotalProfit).toFixed(2);
+                    row["Period Investments"] = Number(s.periodInvested).toFixed(2);
+                    row["Period Withdrawals"] = Number(s.periodWithdrawn).toFixed(2);
+                }
 
-            return row;
-        });
+                row["Total Investments (All Time)"] = Number(s.allTimeInvestments).toFixed(2);
+                row["Total Trading Profit (All Time)"] = Number(s.allTimeTradingProfit).toFixed(2);
+                row["Total Referral Profit (All Time)"] = Number(s.allTimeReferralProfit).toFixed(2);
+                row["Total Profit (Trading + Referral)"] = Number(s.allTimeTotalProfit).toFixed(2);
+                row["Total Withdrawals (All Time)"] = Number(s.allTimeWithdrawals).toFixed(2);
+                row["Active Balance"] = Number(s.activeBalance).toFixed(2);
 
-        const headers = Object.keys(exportList[0]);
-        const csvContent = [
-            `Comprehensive Network Report: ${exportStartDate || 'All Time'} to ${exportEndDate || 'Today'}`,
-            '',
-            headers.join(','),
-            ...exportList.map(row => headers.map((h: any) => `"${(row as any)[h] !== undefined ? (row as any)[h] : ""}"`).join(','))
-        ].join('\n');
+                return row;
+            });
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `comprehensive_report_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            const headers = Object.keys(exportList[0]);
+            const csvContent = [
+                `Comprehensive Network Report: ${exportStartDate || 'All Time'} to ${exportEndDate || 'Today'}`,
+                '',
+                headers.join(','),
+                ...exportList.map(row => headers.map((h: any) => `"${(row as any)[h] !== undefined ? (row as any)[h] : ""}"`).join(','))
+            ].join('\n');
 
-        setExporting(false);
-        setIsExportModalOpen(false);
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `comprehensive_report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            setIsExportModalOpen(false);
+        } catch (error) {
+            console.error("Export Error:", error);
+        } finally {
+            setExporting(false);
+        }
     };
 
     return (
