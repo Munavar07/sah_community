@@ -175,77 +175,103 @@ export default function NetworkPage() {
         if (rawProfiles.length === 0) return;
         setExporting(true);
 
-        const start = exportStartDate ? new Date(exportStartDate).getTime() : 0;
-        const end = exportEndDate ? new Date(exportEndDate).getTime() + 86400000 : Infinity;
+        const start = exportStartDate || "0000-00-00";
+        const end = exportEndDate || "9999-99-99";
 
-        // Filter the raw data for the specific period
-        const filteredLogs = rawLogs.filter(l => {
-            const t = new Date(l.log_date).getTime();
-            return t >= start && t <= end;
+        // 1. Calculate Referrals Made (All Time)
+        const referralCounts: Record<string, number> = {};
+        rawProfiles.forEach(p => {
+            if (p.referrer_id) {
+                referralCounts[p.referrer_id] = (referralCounts[p.referrer_id] || 0) + 1;
+            }
         });
 
-        const filteredCommissions = rawCommissions.filter(c => {
-            const t = new Date(c.created_at).getTime();
-            return t >= start && t <= end;
-        });
+        // 2. Pre-calculate All-Time and Period stats per member
+        const memberStats = rawProfiles.map(p => {
+            const pLogs = rawLogs.filter(l => l.member_id === p.id);
+            const pCommissions = rawCommissions.filter(c => c.referrer_id === p.id);
+            const pInvestments = rawInvestments.filter(i => i.member_id === p.id);
+            const pWithdrawals = rawWithdrawals.filter(w => w.member_id === p.id);
 
-        const filteredInvestments = rawInvestments.filter(i => {
-            const t = new Date(i.created_at).getTime();
-            return t >= start && t <= end;
-        });
+            // Filter for period (using string comparison for log_date and created_at substring)
+            const filteredLogs = pLogs.filter(l => l.log_date >= start && l.log_date <= end);
+            const filteredCommissions = pCommissions.filter(c => {
+                const cDate = new Date(c.created_at).toISOString().split('T')[0];
+                return cDate >= start && cDate <= end;
+            });
+            const filteredInvestments = pInvestments.filter(i => {
+                const iDate = new Date(i.created_at).toISOString().split('T')[0];
+                return iDate >= start && iDate <= end;
+            });
+            const filteredWithdrawals = pWithdrawals.filter(w => {
+                const wDate = new Date(w.created_at).toISOString().split('T')[0];
+                return wDate >= start && wDate <= end;
+            });
 
-        const filteredWithdrawals = rawWithdrawals.filter(w => {
-            const t = new Date(w.created_at).getTime();
-            return t >= start && t <= end;
-        });
+            const allTimeTradingProfit = pLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
+            const allTimeReferralProfit = pCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
+            const allTimeTotalProfit = allTimeTradingProfit + allTimeReferralProfit;
+            const allTimeInvestments = pInvestments.reduce((sum, inv) => sum + Number(inv.amount), 0);
+            const allTimeWithdrawals = pWithdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
+            const activeBalance = allTimeTotalProfit - allTimeWithdrawals;
 
-        // All-Time Data pre-aggregation
-        const allTimeLogMap: Record<string, number> = {};
-        const allTimeComMap: Record<string, number> = {};
-        const allTimeInvMap: Record<string, number> = {};
-        const allTimeWithMap: Record<string, number> = {};
-
-        rawLogs.forEach(l => { allTimeLogMap[l.member_id] = (allTimeLogMap[l.member_id] || 0) + Number(l.profit_amount); });
-        rawCommissions.forEach(c => { allTimeComMap[c.referrer_id] = (allTimeComMap[c.referrer_id] || 0) + Number(c.amount); });
-        rawInvestments.forEach(i => { allTimeInvMap[i.member_id] = (allTimeInvMap[i.member_id] || 0) + Number(i.amount); });
-        rawWithdrawals.forEach(w => { allTimeWithMap[w.member_id] = (allTimeWithMap[w.member_id] || 0) + Number(w.amount); });
-
-        // Compute summary metrics per profile over the selected period
-        const exportList = rawProfiles.map(p => {
-            const pLogs = filteredLogs.filter(l => l.member_id === p.id);
-            const pCommissions = filteredCommissions.filter(c => c.referrer_id === p.id);
-            const pInvestments = filteredInvestments.filter(i => i.member_id === p.id);
-            const pWithdrawals = filteredWithdrawals.filter(w => w.member_id === p.id);
-
-            const periodTradingProfit = pLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
-            const periodReferralProfit = pCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
+            const periodTradingProfit = filteredLogs.reduce((sum, log) => sum + Number(log.profit_amount), 0);
+            const periodReferralProfit = filteredCommissions.reduce((sum, com) => sum + Number(com.amount), 0);
             const periodTotalProfit = periodTradingProfit + periodReferralProfit;
-            const periodInvested = pInvestments.reduce((sum, inv) => sum + Number(inv.amount), 0);
-            const periodWithdrawn = pWithdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
+            const periodInvested = filteredInvestments.reduce((sum, inv) => sum + Number(inv.amount), 0);
+            const periodWithdrawn = filteredWithdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
 
-            const allTimeInvestments = allTimeInvMap[p.id] || 0;
-            const allTimeTradingProfit = allTimeLogMap[p.id] || 0;
-            const allTimeReferralProfit = allTimeComMap[p.id] || 0;
-            const allTimeProfit = allTimeTradingProfit + allTimeReferralProfit;
-            const allTimeWithdrawals = allTimeWithMap[p.id] || 0;
-            const activeBalance = allTimeProfit - allTimeWithdrawals;
+            // Tier Logic
+            let tier = "❌ Inactive";
+            if (allTimeTotalProfit > 500) tier = "🔥 Top Performer";
+            else if (allTimeTotalProfit >= 50) tier = "✅ Active";
+            else if (allTimeTotalProfit > 0) tier = "⚠️ Low Activity";
 
+            return {
+                id: p.id,
+                name: p.full_name,
+                allTimeTotalProfit,
+                allTimeTradingProfit,
+                allTimeReferralProfit,
+                allTimeInvestments,
+                allTimeWithdrawals,
+                activeBalance,
+                periodTradingProfit,
+                periodReferralProfit,
+                periodTotalProfit,
+                periodInvested,
+                periodWithdrawn,
+                referralsMade: referralCounts[p.id] || 0,
+                tier
+            };
+        });
+
+        // 3. Rank by Total Profit (Descending)
+        const rankedStats = [...memberStats].sort((a, b) => b.allTimeTotalProfit - a.allTimeTotalProfit);
+
+        // 4. Transform to final row objects
+        const exportList = rankedStats.map((s, index) => {
             const row: any = {
-                Name: p.full_name,
+                "#Rank": index + 1,
+                "Name": s.name,
+                "Performance Tier": s.tier,
+                "Referrals Made": s.referralsMade
             };
 
             if (exportStartDate || exportEndDate) {
-                row["Selected Period Trading Profit"] = Number(periodTradingProfit).toFixed(2);
-                row["Selected Period Referral Profit"] = Number(periodReferralProfit).toFixed(2);
-                row["Selected Period Total Profit"] = Number(periodTotalProfit).toFixed(2);
+                row["Period Trading Profit"] = Number(s.periodTradingProfit).toFixed(2);
+                row["Period Referral Profit"] = Number(s.periodReferralProfit).toFixed(2);
+                row["Period Total Profit"] = Number(s.periodTotalProfit).toFixed(2);
+                row["Period Investments"] = Number(s.periodInvested).toFixed(2);
+                row["Period Withdrawals"] = Number(s.periodWithdrawn).toFixed(2);
             }
 
-            row["Total Investments (All Time)"] = Number(allTimeInvestments).toFixed(2);
-            row["Total Trading Profit (All Time)"] = Number(allTimeTradingProfit).toFixed(2);
-            row["Total Referral Profit (All Time)"] = Number(allTimeReferralProfit).toFixed(2);
-            row["Total Profit (Trading + Referral)"] = Number(allTimeProfit).toFixed(2);
-            row["Total Withdrawals (All Time)"] = Number(allTimeWithdrawals).toFixed(2);
-            row["Active Balance"] = Number(activeBalance).toFixed(2);
+            row["Total Investments (All Time)"] = Number(s.allTimeInvestments).toFixed(2);
+            row["Total Trading Profit (All Time)"] = Number(s.allTimeTradingProfit).toFixed(2);
+            row["Total Referral Profit (All Time)"] = Number(s.allTimeReferralProfit).toFixed(2);
+            row["Total Profit (Trading + Referral)"] = Number(s.allTimeTotalProfit).toFixed(2);
+            row["Total Withdrawals (All Time)"] = Number(s.allTimeWithdrawals).toFixed(2);
+            row["Active Balance"] = Number(s.activeBalance).toFixed(2);
 
             return row;
         });
@@ -253,8 +279,7 @@ export default function NetworkPage() {
         const headers = Object.keys(exportList[0]);
         const csvContent = [
             `Comprehensive Network Report: ${exportStartDate || 'All Time'} to ${exportEndDate || 'Today'}`,
-            '', // blank line
-            // ... Then the actual headers and data
+            '',
             headers.join(','),
             ...exportList.map(row => headers.map((h: any) => `"${(row as any)[h] !== undefined ? (row as any)[h] : ""}"`).join(','))
         ].join('\n');
@@ -263,7 +288,7 @@ export default function NetworkPage() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `comprehensive_network_report.csv`);
+        link.setAttribute("download", `comprehensive_report_${new Date().toISOString().split('T')[0]}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
