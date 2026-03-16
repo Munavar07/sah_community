@@ -224,19 +224,30 @@ export default function NetworkPage() {
             const periodWithdrawn = pWithdrawals.reduce((sum, w) => sum + Number(w.amount), 0);
 
             const allTimeInvestments = allTimeInvMap[p.id] || 0;
-            const allTimeProfit = (allTimeLogMap[p.id] || 0) + (allTimeComMap[p.id] || 0);
+            const allTimeTradingProfit = allTimeLogMap[p.id] || 0;
+            const allTimeReferralProfit = allTimeComMap[p.id] || 0;
+            const allTimeProfit = allTimeTradingProfit + allTimeReferralProfit;
             const allTimeWithdrawals = allTimeWithMap[p.id] || 0;
             const activeBalance = allTimeProfit - allTimeWithdrawals;
 
-            return {
+            const row: any = {
                 Name: p.full_name,
-                "Total Investments": Number(periodInvested).toFixed(2),
-                "Total Trading Profit": Number(periodTradingProfit).toFixed(2),
-                "Total Referral Profit": Number(periodReferralProfit).toFixed(2),
-                "Total Profit (Trading + Referral)": Number(periodTotalProfit).toFixed(2),
-                "Total Withdrawals": Number(periodWithdrawn).toFixed(2),
-                "Active Balance": Number(activeBalance).toFixed(2)
             };
+
+            if (exportStartDate || exportEndDate) {
+                row["Selected Period Trading Profit"] = Number(periodTradingProfit).toFixed(2);
+                row["Selected Period Referral Profit"] = Number(periodReferralProfit).toFixed(2);
+                row["Selected Period Total Profit"] = Number(periodTotalProfit).toFixed(2);
+            }
+
+            row["Total Investments (All Time)"] = Number(allTimeInvestments).toFixed(2);
+            row["Total Trading Profit (All Time)"] = Number(allTimeTradingProfit).toFixed(2);
+            row["Total Referral Profit (All Time)"] = Number(allTimeReferralProfit).toFixed(2);
+            row["Total Profit (Trading + Referral)"] = Number(allTimeProfit).toFixed(2);
+            row["Total Withdrawals (All Time)"] = Number(allTimeWithdrawals).toFixed(2);
+            row["Active Balance"] = Number(activeBalance).toFixed(2);
+
+            return row;
         });
 
         const headers = Object.keys(exportList[0]);
