@@ -317,7 +317,7 @@ export default function DashboardPage() {
                         {profile?.role === 'leader' ? '⚡ Admin Oversight' : '📊 Personal Overview'}
                     </p>
                     <h2 className="text-3xl font-bold tracking-tight">
-                        {profile?.role === 'leader' ? "Today's Highlights" : "My Dashboard"}
+                        {profile?.role === 'leader' ? "Today's Highlights" : `${profile?.full_name?.split(' ')[0] || 'Your'}'s Dashboard`}
                     </h2>
                     <p className="text-muted-foreground text-sm mt-1">
                         {profile?.role === 'leader' ? 'Real-time network performance metrics' : 'Your personal trading performance'}
