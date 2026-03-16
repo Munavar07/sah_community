@@ -37,7 +37,7 @@ const MemberNode = ({ member }: { member: TreeNode }) => {
                         {member.role === 'leader' ? 'Director' : (member.category || 'Standard')}
                     </span>
                     <span className="text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full text-xs font-bold mt-2">
-                        +${member.totalProfit?.toLocaleString() || 0}
+                        +${member.totalProfit?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
                     </span>
                 </div>
 
@@ -226,21 +226,21 @@ export default function NetworkPage() {
             const allTimeInvestments = allTimeInvMap[p.id] || 0;
             const allTimeProfit = (allTimeLogMap[p.id] || 0) + (allTimeComMap[p.id] || 0);
             const allTimeWithdrawals = allTimeWithMap[p.id] || 0;
-            const activeBalance = (allTimeInvestments + allTimeProfit) - allTimeWithdrawals;
+            const activeBalance = allTimeProfit - allTimeWithdrawals;
 
             return {
                 Name: p.full_name,
                 Role: p.role,
                 Category: p.category || 'Standard',
-                "Period Investments": periodInvested,
-                "Period Trading Profit": periodTradingProfit,
-                "Period Referral Profit": periodReferralProfit,
-                "Period Total Profit": periodTotalProfit,
-                "Period Withdrawals": periodWithdrawn,
-                "All-Time Investments": allTimeInvestments,
-                "All-Time Profit": allTimeProfit,
-                "All-Time Withdrawals": allTimeWithdrawals,
-                "Current Active Balance": activeBalance
+                "Period Investments": Number(periodInvested).toFixed(2),
+                "Period Trading Profit": Number(periodTradingProfit).toFixed(2),
+                "Period Referral Profit": Number(periodReferralProfit).toFixed(2),
+                "Period Total Profit": Number(periodTotalProfit).toFixed(2),
+                "Period Withdrawals": Number(periodWithdrawn).toFixed(2),
+                "All-Time Investments": Number(allTimeInvestments).toFixed(2),
+                "All-Time Profit": Number(allTimeProfit).toFixed(2),
+                "All-Time Withdrawals": Number(allTimeWithdrawals).toFixed(2),
+                "Current Active Balance": Number(activeBalance).toFixed(2)
             };
         });
 
@@ -250,7 +250,7 @@ export default function NetworkPage() {
             '', // blank line
             // ... Then the actual headers and data
             headers.join(','),
-            ...exportList.map(row => headers.map((h: any) => `"${(row as any)[h] || 0}"`).join(','))
+            ...exportList.map(row => headers.map((h: any) => `"${(row as any)[h] !== undefined ? (row as any)[h] : ""}"`).join(','))
         ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
