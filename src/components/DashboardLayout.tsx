@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ModeToggle } from "@/components/ModeToggle";
 
 export default function DashboardLayout({
     children,
@@ -91,14 +92,17 @@ export default function DashboardLayout({
                 </nav>
 
                 <div className="p-4 border-t">
-                    <div className="flex items-center gap-3 mb-4 px-2">
-                        <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${profile.role === 'leader' ? 'bg-indigo-500' : 'bg-emerald-500'}`}>
-                            {profile.full_name?.charAt(0) || 'U'}
+                    <div className="flex items-center justify-between mb-4 px-2">
+                        <div className="flex items-center gap-3">
+                            <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${profile.role === 'leader' ? 'bg-indigo-500' : 'bg-emerald-500'}`}>
+                                {profile.full_name?.charAt(0) || 'U'}
+                            </div>
+                            <div className="text-sm">
+                                <p className="font-medium truncate max-w-[120px]">{profile.full_name}</p>
+                                <p className="text-xs text-muted-foreground capitalize">{profile.role}</p>
+                            </div>
                         </div>
-                        <div className="text-sm">
-                            <p className="font-medium truncate max-w-[120px]">{profile.full_name}</p>
-                            <p className="text-xs text-muted-foreground capitalize">{profile.role}</p>
-                        </div>
+                        <ModeToggle />
                     </div>
                     <Button variant="outline" className="w-full justify-start gap-2" onClick={logout}>
                         <LogOut className="h-4 w-4" />
@@ -111,9 +115,12 @@ export default function DashboardLayout({
             <main className="flex-1 overflow-auto pb-16 md:pb-0">
                 <header className="md:hidden border-b p-4 flex items-center justify-between bg-card sticky top-0 z-10">
                     <h1 className="font-bold">ProfitTracker</h1>
-                    <Button size="sm" variant="ghost" onClick={logout}>
-                        <LogOut className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <ModeToggle />
+                        <Button size="sm" variant="ghost" onClick={logout}>
+                            <LogOut className="h-4 w-4" />
+                        </Button>
+                    </div>
                 </header>
                 <div className="p-4 md:p-8 max-w-7xl mx-auto">
                     {children}

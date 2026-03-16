@@ -2,8 +2,9 @@
 
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, ChevronRight, ChevronDown } from "lucide-react";
+import { Users, ChevronRight, ChevronDown, Download } from "lucide-react";
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
 import Link from "next/link";
@@ -74,7 +75,9 @@ const MemberNode = ({ member, depth = 0 }: { member: TreeNode, depth?: number })
 
 export default function NetworkPage() {
     const [treeData, setTreeData] = useState<TreeNode | null>(null);
+    const [allProfiles, setAllProfiles] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [exporting, setExporting] = useState(false);
 
     useEffect(() => {
         const buildTree = async () => {
@@ -89,14 +92,16 @@ export default function NetworkPage() {
                 return;
             }
 
-            // 2. Fetch all daily logs to calculate trading profit
+            // 2. Fetch all components to calculate stats (logs, investments, withdrawals, commissions)
             const { data: logs } = await supabase.from('daily_logs').select('member_id, profit_amount');
-
-            // 3. Fetch all commissions to calculate referral profit
             const { data: commissions } = await supabase.from('commissions').select('referrer_id, amount');
+            const { data: investments } = await supabase.from('investments').select('member_id, amount');
+            const { data: withdrawals } = await supabase.from('withdrawals').select('member_id, amount');
 
             // 4. Calculate profits per member
             const profitMap: Record<string, number> = {};
+            const investMap: Record<string, number> = {};
+            const withdrawMap: Record<string, number> = {};
 
             logs?.forEach(l => {
                 profitMap[l.member_id] = (profitMap[l.member_id] || 0) + Number(l.profit_amount);
@@ -106,9 +111,32 @@ export default function NetworkPage() {
                 profitMap[c.referrer_id] = (profitMap[c.referrer_id] || 0) + Number(c.amount);
             });
 
-            // 5. Build TreeNode Map
+            investments?.forEach(i => {
+                investMap[i.member_id] = (investMap[i.member_id] || 0) + Number(i.amount);
+            });
+
+            withdrawals?.forEach(w => {
+                withdrawMap[w.member_id] = (withdrawMap[w.member_id] || 0) + Number(w.amount);
+            });
+
+            // 5. Build export data and TreeNode Map
+            const exportList: any[] = [];
             const nodeMap: Record<string, TreeNode> = {};
             profiles.forEach(p => {
+                const totalProfit = profitMap[p.id] || 0;
+                const totalInvestments = investMap[p.id] || 0;
+                const totalWithdrawals = withdrawMap[p.id] || 0;
+
+                exportList.push({
+                    Name: p.full_name,
+                    Role: p.role,
+                    Category: p.category || 'Standard',
+                    TotalInvestments: totalInvestments,
+                    TotalProfit: totalProfit,
+                    TotalWithdrawals: totalWithdrawals,
+                    ActiveBalance: (totalInvestments + totalProfit) - totalWithdrawals
+                });
+
                 nodeMap[p.id] = {
                     id: p.id,
                     name: p.full_name,
@@ -131,12 +159,35 @@ export default function NetworkPage() {
                 }
             });
 
+            setAllProfiles(exportList);
             setTreeData(root);
             setLoading(false);
         };
 
         buildTree();
     }, []);
+
+    const handleExportCSV = () => {
+        if (allProfiles.length === 0) return;
+        setExporting(true);
+
+        const headers = Object.keys(allProfiles[0]);
+        const csvContent = [
+            headers.join(','),
+            ...allProfiles.map(row => headers.map(h => `"${row[h] || 0}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `all_members_report_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setExporting(false);
+    };
 
     return (
         <DashboardLayout>

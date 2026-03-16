@@ -16,13 +16,15 @@ import {
     FileText,
     ChevronRight,
     Loader2,
-    Edit
+    Edit,
+    Download
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { editProfitLogAction, editCommissionAction } from "@/app/actions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -240,6 +242,32 @@ export default function MemberDetailPage() {
         }
     };
 
+    const handleExportCSV = () => {
+        if (!data || data.logs.length === 0) return;
+
+        const csvContent = [
+            "Date,Profit Amount ($),Screenshot URL",
+            ...data.logs.map(log => `"${new Date(log.log_date).toLocaleDateString()}","${log.profit_amount}","${log.screenshot_url || ''}"`)
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `${(profile.full_name || 'Member').replace(/\\s+/g, '_')}_profit_logs.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    // Prepare chart data
+    const chartData = [...logs]
+        .sort((a, b) => new Date(a.log_date).getTime() - new Date(b.log_date).getTime())
+        .map(log => ({
+            date: new Date(log.log_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+            profit: Number(log.profit_amount)
+        }));
+
     return (
         <DashboardLayout>
             <div className="space-y-6">
@@ -377,51 +405,92 @@ export default function MemberDetailPage() {
                         </Card>
                     </div>
 
-                    {/* Profit Logs */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <TrendingUp className="h-5 w-5" /> Recent Profit Logs
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                                {logs.length > 0 ? logs.map((log) => (
-                                    <div key={log.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-emerald-500/10 p-2 rounded text-emerald-500">
-                                                <DollarSign className="h-4 w-4" />
-                                            </div>
-                                            <div>
-                                                <p className="font-medium text-emerald-500">+${Number(log.profit_amount).toLocaleString()}</p>
-                                                <p className="text-xs text-muted-foreground">{new Date(log.log_date).toLocaleDateString()}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            {log.screenshot_url && (
-                                                <a href={log.screenshot_url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline flex items-center gap-1">
-                                                    <ImageIcon className="h-3 w-3" /> View Result
-                                                </a>
-                                            )}
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                                                onClick={() => {
-                                                    setEditingLog(log);
-                                                    setEditAmount(log.profit_amount.toString());
-                                                }}
-                                            >
-                                                <Edit className="h-3 w-3 mr-1" /> Edit
-                                            </Button>
-                                        </div>
+                    <div className="space-y-6">
+                        {/* Profit Graph */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5" /> Profit History Graph
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {chartData.length > 0 ? (
+                                    <div className="h-[250px] w-full mt-4">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                                                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} stroke="#888888" />
+                                                <YAxis fontSize={12} tickLine={false} axisLine={false} stroke="#888888" tickFormatter={(value) => `$${value}`} />
+                                                <Tooltip
+                                                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background)' }}
+                                                    itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                                                />
+                                                <Line
+                                                    type="monotone"
+                                                    dataKey="profit"
+                                                    stroke="#10b981"
+                                                    strokeWidth={3}
+                                                    dot={{ r: 4, fill: '#10b981', strokeWidth: 2 }}
+                                                    activeDot={{ r: 6 }}
+                                                />
+                                            </LineChart>
+                                        </ResponsiveContainer>
                                     </div>
-                                )) : (
-                                    <div className="text-center py-10 text-muted-foreground">No profit logs found.</div>
+                                ) : (
+                                    <div className="text-center py-10 text-muted-foreground">Not enough data to graph yet.</div>
                                 )}
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardContent>
+                        </Card>
+
+                        {/* Profit Logs */}
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <CardTitle className="flex items-center gap-2">
+                                    <TrendingUp className="h-5 w-5" /> Recent Profit Logs
+                                </CardTitle>
+                                <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={logs.length === 0}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Export CSV
+                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                                    {logs.length > 0 ? logs.map((log) => (
+                                        <div key={log.id} className="flex items-center justify-between p-3 rounded-md border text-sm">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-emerald-500/10 p-2 rounded text-emerald-500">
+                                                    <DollarSign className="h-4 w-4" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-emerald-500">+${Number(log.profit_amount).toLocaleString()}</p>
+                                                    <p className="text-xs text-muted-foreground">{new Date(log.log_date).toLocaleDateString()}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                {log.screenshot_url && (
+                                                    <a href={log.screenshot_url} target="_blank" rel="noreferrer" className="text-xs text-indigo-500 hover:underline flex items-center gap-1">
+                                                        <ImageIcon className="h-3 w-3" /> View Result
+                                                    </a>
+                                                )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                                                    onClick={() => {
+                                                        setEditingLog(log);
+                                                        setEditAmount(log.profit_amount.toString());
+                                                    }}
+                                                >
+                                                    <Edit className="h-3 w-3 mr-1" /> Edit
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="text-center py-10 text-muted-foreground">No profit logs found.</div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
 
                 {/* Edit Modal */}
