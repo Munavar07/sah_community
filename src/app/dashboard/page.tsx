@@ -2,18 +2,16 @@
 
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Users, Activity, AlertCircle, Loader2 } from "lucide-react";
+import { DollarSign, Users, Activity, AlertCircle, Loader2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
 interface DashboardStats {
     totalInvestment: number;
-    totalProfit: number; // For Admin, this will be Today's Profit
+    totalProfit: number;
     memberCount?: number;
     dailyStatus?: string;
     hasActiveInvestment?: boolean;
@@ -23,198 +21,204 @@ interface DashboardStats {
     chartData?: { date: string, profit: number }[];
 }
 
+const StatCard = ({
+    title,
+    value,
+    subtitle,
+    icon: Icon,
+    color,
+    gradient,
+}: {
+    title: string;
+    value: string;
+    subtitle: string;
+    icon: React.ElementType;
+    color: string;
+    gradient: string;
+}) => (
+    <div className={`card-hover relative rounded-2xl border border-border/60 bg-card overflow-hidden p-5 animate-fade-in-up`}>
+        <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-10 ${color}`} />
+        <div className="flex items-start justify-between mb-4">
+            <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</p>
+            </div>
+            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-lg ${gradient}`}>
+                <Icon className="h-5 w-5 text-white" />
+            </div>
+        </div>
+        <div className="text-3xl font-bold tracking-tight mb-1">{value}</div>
+        <p className="text-xs text-muted-foreground">{subtitle}</p>
+    </div>
+);
+
 const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
     <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Network Value</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">${stats.totalInvestment.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Across all members</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Active Members</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{stats.memberCount || 0}</div>
-                    <p className="text-xs text-muted-foreground">In your trading network</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Today&apos;s Profit</CardTitle>
-                    <Activity className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-emerald-600">${stats.totalProfit.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Resets at midnight</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">System Status</CardTitle>
-                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-emerald-500">Active</div>
-                    <p className="text-xs text-muted-foreground">All systems operational</p>
-                </CardContent>
-            </Card>
+            <StatCard
+                title="Total Network Value"
+                value={`$${stats.totalInvestment.toLocaleString()}`}
+                subtitle="Across all members"
+                icon={DollarSign}
+                color="bg-emerald-500"
+                gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
+            />
+            <StatCard
+                title="Active Members"
+                value={String(stats.memberCount || 0)}
+                subtitle="In your trading network"
+                icon={Users}
+                color="bg-indigo-500"
+                gradient="bg-gradient-to-br from-indigo-500 to-violet-600"
+            />
+            <StatCard
+                title="Today's Profit"
+                value={`$${stats.totalProfit.toLocaleString()}`}
+                subtitle="Resets at midnight"
+                icon={TrendingUp}
+                color="bg-teal-500"
+                gradient="bg-gradient-to-br from-teal-500 to-emerald-600"
+            />
+            <StatCard
+                title="System Status"
+                value="Active"
+                subtitle="All systems operational"
+                icon={Activity}
+                color="bg-emerald-500"
+                gradient="bg-gradient-to-br from-emerald-600 to-green-600"
+            />
         </div>
 
-        {/* Pending Logs Alert Section */}
+        {/* Pending Logs Alert */}
         {stats.pendingMembers && stats.pendingMembers.length > 0 && (
-            <Card className="border-amber-500/50 bg-amber-500/5">
-                <CardHeader className="flex flex-row items-center gap-2 pb-2">
-                    <AlertCircle className="h-5 w-5 text-amber-500" />
-                    <CardTitle className="text-lg text-amber-600">Pending Daily Profits</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-sm text-muted-foreground mb-4">
-                        The following members have not yet uploaded their profit screenshots for today:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                        {stats.pendingMembers.map((name, i) => (
-                            <div key={i} className="bg-amber-500/10 text-amber-700 px-3 py-1 rounded-full text-xs font-medium border border-amber-500/20">
-                                {name}
-                            </div>
-                        ))}
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 animate-fade-in-up">
+                <div className="flex items-center gap-2 mb-3">
+                    <div className="h-8 w-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                        <AlertCircle className="h-4 w-4 text-amber-500" />
                     </div>
-                </CardContent>
-            </Card>
+                    <h3 className="font-semibold text-amber-600 dark:text-amber-400">Pending Daily Profits</h3>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                    The following members have not uploaded their profit screenshots for today:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                    {stats.pendingMembers.map((name, i) => (
+                        <span key={i} className="bg-amber-500/10 text-amber-700 dark:text-amber-400 px-3 py-1 rounded-full text-xs font-medium border border-amber-500/20">
+                            {name}
+                        </span>
+                    ))}
+                </div>
+            </div>
         )}
 
-        <Card className="col-span-full">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Activity className="h-5 w-5" /> Network Overall Profit History
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                {stats.chartData && stats.chartData.length > 0 ? (
-                    <div className="h-[300px] w-full mt-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={stats.chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                                <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} stroke="#888888" />
-                                <YAxis fontSize={12} tickLine={false} axisLine={false} stroke="#888888" tickFormatter={(value) => `$${value}`} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-background)' }}
-                                    itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey="profit"
-                                    stroke="#10b981"
-                                    strokeWidth={3}
-                                    dot={{ r: 4, fill: '#10b981', strokeWidth: 2 }}
-                                    activeDot={{ r: 6 }}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
+        {/* Profit Chart */}
+        <div className="rounded-2xl border border-border/60 bg-card p-5 animate-fade-in-up">
+            <div className="flex items-center gap-3 mb-5">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <Activity className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                    <h3 className="font-bold text-base">Network Profit History</h3>
+                    <p className="text-xs text-muted-foreground">Overall earnings over time</p>
+                </div>
+            </div>
+            {stats.chartData && stats.chartData.length > 0 ? (
+                <div className="h-[280px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={stats.chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                            <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} stroke="#6b7280" />
+                            <YAxis fontSize={11} tickLine={false} axisLine={false} stroke="#6b7280" tickFormatter={(v) => `$${v}`} />
+                            <Tooltip
+                                contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'hsl(224,45%,7%)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}
+                                labelStyle={{ color: '#9ca3af', fontSize: '11px' }}
+                                itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                                formatter={((value: unknown) => [`$${Number(value).toLocaleString()}`, 'Profit']) as any}
+                            />
+                            <Line
+                                type="monotone"
+                                dataKey="profit"
+                                stroke="#10b981"
+                                strokeWidth={2.5}
+                                dot={{ r: 3.5, fill: '#10b981', strokeWidth: 0 }}
+                                activeDot={{ r: 6, fill: '#10b981', stroke: 'rgba(16,185,129,0.3)', strokeWidth: 4 }}
+                            />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : (
+                <div className="h-[200px] flex flex-col items-center justify-center text-center space-y-4">
+                    <div className="bg-muted/50 p-4 rounded-full">
+                        <Activity className="h-8 w-8 text-muted-foreground" />
                     </div>
-                ) : (
-                    <div className="h-[200px] flex flex-col items-center justify-center text-center space-y-4">
-                        <div className="bg-muted/50 p-4 rounded-full inline-block">
-                            <Activity className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <div>
-                            <h3 className="text-lg font-medium">Network Oversight</h3>
-                            <p className="text-muted-foreground max-w-sm mx-auto mt-1">
-                                No profit data available yet.
-                            </p>
-                        </div>
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+                    <p className="text-muted-foreground text-sm">No profit data available yet.</p>
+                </div>
+            )}
+        </div>
     </div>
 );
 
 const MemberDashboard = ({ stats }: { stats: DashboardStats }) => (
     <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Personal Investment</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">${stats.totalInvestment.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Current active capital</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Lifetime Profit</CardTitle>
-                    <Activity className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">${stats.totalProfit.toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Total earnings to date</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Daily Status</CardTitle>
-                    <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className={`text-2xl font-bold ${stats.dailyStatus === 'Pending' ? 'text-amber-500' : 'text-emerald-500'}`}>
-                        {stats.dailyStatus}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                        {stats.dailyStatus === 'Pending' ? 'Logging required for today' : 'All set for today'}
-                    </p>
-                </CardContent>
-            </Card>
+            <StatCard
+                title="Personal Investment"
+                value={`$${stats.totalInvestment.toLocaleString()}`}
+                subtitle="Current active capital"
+                icon={DollarSign}
+                color="bg-indigo-500"
+                gradient="bg-gradient-to-br from-indigo-500 to-violet-600"
+            />
+            <StatCard
+                title="Lifetime Profit"
+                value={`$${stats.totalProfit.toLocaleString()}`}
+                subtitle="Total earnings to date"
+                icon={TrendingUp}
+                color="bg-emerald-500"
+                gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
+            />
+            <StatCard
+                title="Daily Status"
+                value={stats.dailyStatus || 'Pending'}
+                subtitle={stats.dailyStatus === 'Pending' ? 'Logging required for today' : 'All set for today'}
+                icon={Activity}
+                color={stats.dailyStatus === 'Pending' ? 'bg-amber-500' : 'bg-emerald-500'}
+                gradient={stats.dailyStatus === 'Pending' ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-emerald-500 to-teal-600'}
+            />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Withdrawn</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-amber-600">${(stats.totalWithdrawn || 0).toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Successful withdrawals</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Active Balance</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-emerald-600">${(stats.activeBalance || 0).toLocaleString()}</div>
-                    <p className="text-xs text-muted-foreground">Available for withdrawal</p>
-                </CardContent>
-            </Card>
+        <div className="grid gap-4 md:grid-cols-2">
+            <StatCard
+                title="Total Withdrawn"
+                value={`$${(stats.totalWithdrawn || 0).toLocaleString()}`}
+                subtitle="Successful withdrawals"
+                icon={TrendingDown}
+                color="bg-rose-500"
+                gradient="bg-gradient-to-br from-rose-500 to-pink-600"
+            />
+            <StatCard
+                title="Active Balance"
+                value={`$${(stats.activeBalance || 0).toLocaleString()}`}
+                subtitle="Available for withdrawal"
+                icon={Wallet}
+                color="bg-emerald-500"
+                gradient="bg-gradient-to-br from-emerald-500 to-teal-600"
+            />
         </div>
 
-        <div className="grid gap-6 md:grid-cols-1">
-            <Card className="border-dashed flex flex-col items-center justify-center p-12 text-center space-y-4">
-                <div className="bg-emerald-500/10 p-4 rounded-full">
-                    <Activity className="h-8 w-8 text-emerald-500" />
-                </div>
-                <div>
-                    <h3 className="font-bold text-xl">Daily Profit Logging</h3>
-                    <p className="text-muted-foreground mb-6 max-w-md">
-                        Tracking your daily consistency is key to long-term success. Make sure to log your results every trading day.
-                    </p>
-                    <Link href="/dashboard/log">
-                        <Button className="bg-emerald-600 hover:bg-emerald-700 px-8 h-11 text-base">
-                            Log Today&apos;s Profit
-                        </Button>
-                    </Link>
-                </div>
-            </Card>
+        {/* Log Profit CTA */}
+        <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 p-8 text-center animate-fade-in-up">
+            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/25">
+                <Activity className="h-7 w-7 text-white" />
+            </div>
+            <h3 className="font-bold text-xl mb-2">Daily Profit Logging</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto text-sm">
+                Track your daily consistency. Log your results every trading day to maintain your performance record.
+            </p>
+            <Link href="/dashboard/log">
+                <Button className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-500/20 px-8 h-11 rounded-xl font-semibold transition-all">
+                    Log Today&apos;s Profit
+                </Button>
+            </Link>
         </div>
     </div>
 );
@@ -232,87 +236,55 @@ export default function DashboardPage() {
     useEffect(() => {
         const fetchStats = async () => {
             if (!user || !profile) return;
-
             try {
                 if (profile.role === 'leader') {
-                    // Admin: Aggregated data
                     const today = new Date().toISOString().split('T')[0];
-
                     const { data: invData } = await supabase.from('investments').select('amount');
                     const { data: logData } = await supabase.from('daily_logs').select('profit_amount, member_id, log_date');
                     const { data: comData } = await supabase.from('commissions').select('amount, created_at');
                     const { data: profileData } = await supabase.from('profiles').select('id, full_name, role, created_at');
 
                     const totalInv = invData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
-
-                    // Filter logs for today only
                     const todayLogs = logData?.filter(l => l.log_date?.startsWith(today)) || [];
                     const totalProfToday = todayLogs.reduce((sum, item) => sum + Number(item.profit_amount), 0);
-
-                    // Identify members (exclude leaders and members created today)
                     const members = profileData?.filter(p => {
                         if (p.role !== 'member') return false;
                         const memberDate = p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : '';
-                        return memberDate !== today; // Exclude members created today
+                        return memberDate !== today;
                     }) || [];
                     const loggedMemberIds = new Set(todayLogs.map(l => l.member_id));
+                    const pendingMembers = members.filter(m => !loggedMemberIds.has(m.id)).map(m => m.full_name || "Unknown");
 
-                    const pendingMembers = members
-                        .filter(m => !loggedMemberIds.has(m.id))
-                        .map(m => m.full_name || "Unknown Member");
-
-                    // Aggregate logs and commissions by date for the overall profit chart
                     const logsByDate = logData?.reduce((acc: any, log: any) => {
                         const date = log.log_date;
                         acc[date] = (acc[date] || 0) + Number(log.profit_amount);
                         return acc;
                     }, {}) || {};
-
                     comData?.forEach((com: any) => {
                         const date = new Date(com.created_at).toISOString().split('T')[0];
                         logsByDate[date] = (logsByDate[date] || 0) + Number(com.amount);
                     });
+                    const chartData = Object.keys(logsByDate).sort((a, b) => new Date(a).getTime() - new Date(b).getTime()).map(date => ({
+                        date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                        profit: logsByDate[date]
+                    }));
 
-                    const chartData = Object.keys(logsByDate || {})
-                        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-                        .map(date => ({
-                            date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-                            profit: logsByDate[date]
-                        }));
-
-                    setStats({
-                        totalInvestment: totalInv,
-                        totalProfit: totalProfToday,
-                        memberCount: members.length,
-                        pendingMembers,
-                        chartData
-                    });
+                    setStats({ totalInvestment: totalInv, totalProfit: totalProfToday, memberCount: members.length, pendingMembers, chartData });
                 } else {
-                    // Member: Personal data
                     const { data: invData } = await supabase.from('investments').select('amount').eq('member_id', user.id);
                     const { data: logData } = await supabase.from('daily_logs').select('profit_amount, log_date').eq('member_id', user.id);
                     const { data: comData } = await supabase.from('commissions').select('amount').eq('referrer_id', user.id);
                     const { data: withdrawData } = await supabase.from('withdrawals').select('amount').eq('member_id', user.id);
 
-                    const totalInv = invData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
-                    const tradingProf = logData?.reduce((sum, item) => sum + Number(item.profit_amount), 0) || 0;
-                    const commissionProf = comData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
-                    const totalWithdrawn = withdrawData?.reduce((sum, item) => sum + Number(item.amount), 0) || 0;
-
+                    const totalInv = invData?.reduce((sum, i) => sum + Number(i.amount), 0) || 0;
+                    const tradingProf = logData?.reduce((sum, i) => sum + Number(i.profit_amount), 0) || 0;
+                    const commissionProf = comData?.reduce((sum, i) => sum + Number(i.amount), 0) || 0;
+                    const totalWithdrawn = withdrawData?.reduce((sum, i) => sum + Number(i.amount), 0) || 0;
                     const totalProf = tradingProf + commissionProf;
-                    const activeBalance = totalProf - totalWithdrawn;
-
-                    // Check if logged today
                     const today = new Date().toISOString().split('T')[0];
                     const hasLoggedToday = logData?.some(l => l.log_date === today);
 
-                    setStats({
-                        totalInvestment: totalInv,
-                        totalProfit: totalProf,
-                        dailyStatus: hasLoggedToday ? 'Completed' : 'Pending',
-                        totalWithdrawn,
-                        activeBalance
-                    });
+                    setStats({ totalInvestment: totalInv, totalProfit: totalProf, dailyStatus: hasLoggedToday ? 'Completed' : 'Pending', totalWithdrawn, activeBalance: totalProf - totalWithdrawn });
                 }
             } catch (error) {
                 console.error("Error fetching stats:", error);
@@ -321,15 +293,18 @@ export default function DashboardPage() {
             }
         };
 
-        if (!authLoading && user && profile) {
-            fetchStats();
-        }
+        if (!authLoading && user && profile) fetchStats();
     }, [user, profile, authLoading]);
 
     if (authLoading || loading) return (
         <DashboardLayout>
             <div className="flex h-[400px] items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <div className="flex flex-col items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                        <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
+                    </div>
+                    <p className="text-sm text-muted-foreground animate-pulse">Loading dashboard...</p>
+                </div>
             </div>
         </DashboardLayout>
     );
@@ -337,10 +312,15 @@ export default function DashboardPage() {
     return (
         <DashboardLayout>
             <div className="flex flex-col gap-6">
-                <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Today&apos;s Highlights</h2>
-                    <p className="text-muted-foreground">
-                        {profile?.role === 'leader' ? 'Administrator Oversight' : 'Personal Performance Overview'}
+                <div className="animate-fade-in-up">
+                    <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-1">
+                        {profile?.role === 'leader' ? '⚡ Admin Oversight' : '📊 Personal Overview'}
+                    </p>
+                    <h2 className="text-3xl font-bold tracking-tight">
+                        {profile?.role === 'leader' ? "Today's Highlights" : "My Dashboard"}
+                    </h2>
+                    <p className="text-muted-foreground text-sm mt-1">
+                        {profile?.role === 'leader' ? 'Real-time network performance metrics' : 'Your personal trading performance'}
                     </p>
                 </div>
 
@@ -353,4 +333,3 @@ export default function DashboardPage() {
         </DashboardLayout>
     );
 }
-

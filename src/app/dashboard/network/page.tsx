@@ -23,30 +23,42 @@ interface TreeNode extends Partial<Profile> {
 // Recursive Member Component
 const MemberNode = ({ member }: { member: TreeNode }) => {
     const hasChildren = member.children && member.children.length > 0;
+    const isLeader = member.role === 'leader';
 
     return (
         <li>
-            <div className="relative mx-auto flex flex-col items-center justify-center p-4 border rounded-xl bg-card min-w-[160px] max-w-[200px] shadow-sm hover:shadow-md transition-all z-10 hover:-translate-y-1">
-                <div className={`h-12 w-12 rounded-full flex items-center justify-center text-xl font-bold mb-3 shadow-inner ${member.role === 'leader' ? "bg-indigo-500 text-white ring-4 ring-indigo-500/20" : "bg-emerald-500 text-white ring-4 ring-emerald-500/20"}`}>
+            <div className={`relative mx-auto flex flex-col items-center p-4 rounded-2xl bg-card border border-border/60 min-w-[170px] max-w-[210px] shadow-md hover:shadow-xl transition-all duration-200 z-10 hover:-translate-y-1.5 hover:border-emerald-500/30 overflow-hidden`}>
+                {/* Top accent bar */}
+                <div className={`absolute top-0 left-0 right-0 h-0.5 ${isLeader ? 'bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500' : 'bg-gradient-to-r from-emerald-500 via-teal-500 to-green-500'}`} />
+
+                {/* Avatar */}
+                <div className={`h-12 w-12 rounded-xl flex items-center justify-center text-lg font-bold mb-3 text-white shadow-lg ${isLeader
+                        ? 'bg-gradient-to-br from-indigo-500 to-violet-600 ring-2 ring-indigo-500/25'
+                        : 'bg-gradient-to-br from-emerald-500 to-teal-600 ring-2 ring-emerald-500/25'
+                    }`}>
                     {member.name?.charAt(0) || 'U'}
                 </div>
-                <h4 className="font-semibold text-sm text-center line-clamp-1" title={member.name}>{member.name}</h4>
 
-                <div className="flex flex-col items-center gap-1 mt-2 w-full">
-                    <span className="capitalize text-[10px] text-muted-foreground px-2 py-0.5 bg-accent rounded-full border">
-                        {member.role === 'leader' ? 'Director' : (member.category || 'Standard')}
+                <h4 className="font-semibold text-sm text-center line-clamp-1 mb-2" title={member.name}>{member.name}</h4>
+
+                <div className="flex flex-col items-center gap-1.5 w-full">
+                    <span className={`capitalize text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${isLeader
+                            ? 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20'
+                            : 'text-muted-foreground bg-accent border-border/60'
+                        }`}>
+                        {isLeader ? 'Director' : (member.category || 'Standard')}
                     </span>
-                    <span className="text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full text-xs font-bold mt-2">
+                    <span className="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-bold mt-1">
                         +${member.totalProfit?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
                     </span>
                 </div>
 
                 <Link
                     href={`/dashboard/members/${member.id}`}
-                    className="absolute top-2 right-2 p-1.5 hover:bg-indigo-500/10 rounded-full text-muted-foreground hover:text-indigo-500 transition-colors"
-                    title="View Profile Details"
+                    className="absolute top-3 right-3 p-1 hover:bg-accent rounded-lg text-muted-foreground hover:text-foreground transition-colors"
+                    title="View Profile"
                 >
-                    <ChevronRight className="w-4 h-4" />
+                    <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
             </div>
 

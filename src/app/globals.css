@@ -37,65 +37,48 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
+    --background: 220 20% 97%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
+    --popover-foreground: 222 47% 11%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 94%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 94%;
+    --muted-foreground: 215 20% 50%;
+    --accent: 210 40% 92%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 160 84% 39%;
+    --radius: 0.75rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --background: 224 71% 4%;
+    --foreground: 213 31% 91%;
+    --card: 224 45% 7%;
+    --card-foreground: 213 31% 91%;
+    --popover: 224 45% 7%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 222 47% 11%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 223 47% 11%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 216 34% 17%;
+    --accent-foreground: 213 31% 91%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 213 31% 91%;
+    --border: 216 34% 15%;
+    --input: 216 34% 15%;
+    --ring: 160 84% 39%;
   }
 }
 
@@ -111,24 +94,20 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Mobile optimizations */
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Ensure proper touch scrolling on mobile */
   * {
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Prevent horizontal scroll on mobile */
   body {
     overflow-x: hidden;
     width: 100%;
   }
 
-  /* Better touch targets for mobile */
   button,
   a,
   input,
@@ -136,6 +115,69 @@
   textarea {
     touch-action: manipulation;
   }
+}
+
+/* Glassmorphism Utility */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Animations */
+@keyframes float-orb {
+
+  0%,
+  100% {
+    transform: translateY(0px) scale(1);
+  }
+
+  50% {
+    transform: translateY(-20px) scale(1.05);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float {
+  animation: float-orb 6s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-orb 8s ease-in-out infinite reverse;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
+}
+
+/* Gradient Text Utility */
+.gradient-text {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 50%, #6ee7b7 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Card hover lift */
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.1);
 }
 
 /* Organizational Chart */
@@ -156,7 +198,6 @@
   align-items: center;
 }
 
-/* Connectors */
 .org-tree li::before,
 .org-tree li::after {
   content: '';
