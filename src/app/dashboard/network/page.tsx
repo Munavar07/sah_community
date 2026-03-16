@@ -230,17 +230,12 @@ export default function NetworkPage() {
 
             return {
                 Name: p.full_name,
-                Role: p.role,
-                Category: p.category || 'Standard',
-                "Period Investments": Number(periodInvested).toFixed(2),
-                "Period Trading Profit": Number(periodTradingProfit).toFixed(2),
-                "Period Referral Profit": Number(periodReferralProfit).toFixed(2),
-                "Period Total Profit": Number(periodTotalProfit).toFixed(2),
-                "Period Withdrawals": Number(periodWithdrawn).toFixed(2),
-                "All-Time Investments": Number(allTimeInvestments).toFixed(2),
-                "All-Time Profit": Number(allTimeProfit).toFixed(2),
-                "All-Time Withdrawals": Number(allTimeWithdrawals).toFixed(2),
-                "Current Active Balance": Number(activeBalance).toFixed(2)
+                "Total Investments": Number(periodInvested).toFixed(2),
+                "Total Trading Profit": Number(periodTradingProfit).toFixed(2),
+                "Total Referral Profit": Number(periodReferralProfit).toFixed(2),
+                "Total Profit (Trading + Referral)": Number(periodTotalProfit).toFixed(2),
+                "Total Withdrawals": Number(periodWithdrawn).toFixed(2),
+                "Active Balance": Number(activeBalance).toFixed(2)
             };
         });
 
