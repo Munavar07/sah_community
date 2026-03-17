@@ -420,3 +420,45 @@ export async function editCommissionAction(prevState: unknown, formData: FormDat
         return { success: false, message: "Critical Server Error. Please try again later." };
     }
 }
+export async function updateReferrerAction(prevState: unknown, formData: FormData) {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            return { success: false, message: "Server Error: Missing Database Configuration" };
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const memberId = formData.get("memberId") as string;
+        const referrerId = formData.get("referrerId") as string; // Can be "none" or uuid
+
+        if (!memberId) {
+            return { success: false, message: "Member ID is missing." };
+        }
+
+        const newReferrerId = referrerId === "none" ? null : referrerId;
+
+        const { error: dbError } = await supabaseAdmin
+            .from('profiles')
+            .update({ referrer_id: newReferrerId })
+            .eq('id', memberId);
+
+        if (dbError) {
+            return { success: false, message: `Database Error: ${dbError.message}` };
+        }
+
+        revalidatePath("/dashboard/network");
+        revalidatePath(`/dashboard/members/${memberId}`);
+
+        return { success: true, message: "Success! Referrer updated." };
+
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("UPDATE REFERRER ERROR:", error);
+        return { success: false, message: "Critical Server Error. Please try again later." };
+    }
+}

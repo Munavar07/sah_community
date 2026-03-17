@@ -25,7 +25,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { Profile } from "@/types";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
-import { editProfitLogAction, editCommissionAction } from "@/app/actions";
+import { editProfitLogAction, editCommissionAction, updateReferrerAction } from "@/app/actions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -163,27 +163,31 @@ export default function MemberDetailPage() {
     const handleSaveReferrer = async () => {
         setSavingReferrer(true);
         try {
-            const newReferrerId = selectedReferrerId === 'none' ? null : selectedReferrerId;
-            const { error } = await supabase
-                .from('profiles')
-                .update({ referrer_id: newReferrerId })
-                .eq('id', id);
-            if (error) throw error;
+            const formData = new FormData();
+            formData.append("memberId", id);
+            formData.append("referrerId", selectedReferrerId);
 
-            // Update local state
-            const newReferrer = allMembers.find(m => m.id === selectedReferrerId);
-            setData(prev => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    profile: {
-                        ...prev.profile,
-                        referrer_id: newReferrerId,
-                        referrer: newReferrer ? { full_name: newReferrer.full_name } : undefined
-                    }
-                };
-            });
-            setEditingReferrer(false);
+            const result = await updateReferrerAction(null, formData);
+            if (result.success) {
+                // Update local state
+                const newReferrer = allMembers.find(m => m.id === selectedReferrerId);
+                const newReferrerId = selectedReferrerId === 'none' ? null : selectedReferrerId;
+
+                setData(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        profile: {
+                            ...prev.profile,
+                            referrer_id: newReferrerId,
+                            referrer: newReferrer ? { full_name: newReferrer.full_name } : undefined
+                        }
+                    };
+                });
+                setEditingReferrer(false);
+            } else {
+                alert(result.message);
+            }
         } catch (err) {
             console.error(err);
             alert('Failed to update referrer.');
