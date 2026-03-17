@@ -565,3 +565,56 @@ export async function deleteMemberAction(prevState: unknown, formData: FormData)
         return { success: false, message: "Critical Server Error. Please try again later." };
     }
 }
+
+export async function getNetworkData() {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            throw new Error("Missing Database Configuration");
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const { data: profiles, error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .select('id, full_name, email, role, referrer_id, category, created_at');
+
+        if (profileError) throw profileError;
+
+        const { data: investments, error: investError } = await supabaseAdmin
+            .from('investments')
+            .select('member_id, amount, status')
+            .eq('status', 'active');
+
+        if (investError) throw investError;
+
+        // Group investments by member
+        const investmentMap = (investments || []).reduce((acc: any, inv: any) => {
+            acc[inv.member_id] = (acc[inv.member_id] || 0) + Number(inv.amount);
+            return acc;
+        }, {});
+
+        // Build a hierarchy list
+        const networkNodes = (profiles || []).map(p => ({
+            id: p.id,
+            name: p.full_name || "Unknown",
+            email: p.email,
+            role: p.role,
+            referrerId: p.referrer_id,
+            investment: investmentMap[p.id] || 0,
+            category: p.category,
+            joinDate: p.created_at
+        }));
+
+        return { success: true, nodes: networkNodes };
+
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("GET NETWORK DATA ERROR:", error);
+        return { success: false, message: error.message };
+    }
+}

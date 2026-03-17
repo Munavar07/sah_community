@@ -17,7 +17,7 @@ export const supabase = createClient(
             detectSessionInUrl: true,
             flowType: 'pkce', // More secure and compatible
             storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-            storageKey: 'sah-community-auth',
+            storageKey: 'sha-community-auth',
         },
     }
 );
