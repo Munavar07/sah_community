@@ -503,3 +503,65 @@ export async function updateReferrerAction(prevState: unknown, formData: FormDat
         return { success: false, message: "Critical Server Error. Please try again later." };
     }
 }
+
+export async function deleteMemberAction(prevState: unknown, formData: FormData) {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            return { success: false, message: "Server Error: Missing Database Configuration" };
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const memberId = formData.get("memberId") as string;
+
+        if (!memberId) {
+            return { success: false, message: "Member ID is missing." };
+        }
+
+        // 1. Delete associated data first (to avoid FK issues if cascade is not set)
+        // Clear references in other profiles (referral points)
+        await supabaseAdmin
+            .from('profiles')
+            .update({ referrer_id: null })
+            .eq('referrer_id', memberId);
+
+        // Delete Daily Logs
+        await supabaseAdmin.from('daily_logs').delete().eq('member_id', memberId);
+
+        // Delete Commissions (both as referrer and as member)
+        await supabaseAdmin.from('commissions').delete().or(`referrer_id.eq.${memberId},member_id.eq.${memberId}`);
+
+        // Delete Withdrawals
+        await supabaseAdmin.from('withdrawals').delete().eq('member_id', memberId);
+
+        // Delete Investments
+        await supabaseAdmin.from('investments').delete().eq('member_id', memberId);
+
+        // 2. Delete Profile
+        await supabaseAdmin.from('profiles').delete().eq('id', memberId);
+
+        // 3. Delete Auth User
+        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(memberId);
+
+        if (authError) {
+            console.error("Auth Deletion Error:", authError);
+            // Even if auth fails, the DB profile is gone, but we should inform
+            return { success: false, message: `Auth Error: ${authError.message}` };
+        }
+
+        revalidatePath("/dashboard/network");
+        revalidatePath("/dashboard/members");
+
+        return { success: true, message: "Member successfully deleted from system." };
+
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("DELETE MEMBER ERROR:", error);
+        return { success: false, message: "Critical Server Error. Please try again later." };
+    }
+}

@@ -38,6 +38,14 @@ export default function AddMemberPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!upline || upline === "none") {
+            setMessage("Error: Upline (Referrer) selection is required.");
+            // Scroll to top to see message if needed
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+        }
+
         setLoading(true);
         setMessage(null);
 

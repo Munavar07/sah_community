@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, LogOut, Upload, Users, LineChart, Image as ImageIcon, UserPlus, DollarSign, Loader2 } from "lucide-react";
+import { LayoutDashboard, LogOut, Upload, Users, LineChart, Image as ImageIcon, UserPlus, DollarSign, Loader2, Award } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
@@ -49,9 +49,10 @@ export default function DashboardLayout({
 
     const leaderLinks = [
         { href: "/dashboard", label: "Master View", icon: LayoutDashboard },
+        { href: "/dashboard/members", label: "All Members", icon: Users },
         { href: "/dashboard/members/add", label: "Add Member", icon: UserPlus },
         { href: "/dashboard/commissions/add", label: "Add Commission", icon: DollarSign },
-        { href: "/dashboard/network", label: "Network Tree", icon: Users },
+        { href: "/dashboard/network", label: "Network Tree", icon: Award },
         { href: "/dashboard/gallery", label: "Profit Gallery", icon: ImageIcon },
     ];
 
