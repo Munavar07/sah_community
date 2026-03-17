@@ -451,10 +451,51 @@ export async function updateReferrerAction(prevState: unknown, formData: FormDat
             return { success: false, message: `Database Error: ${dbError.message}` };
         }
 
+        // Handle Referral Bonus transfer/creation
+        if (newReferrerId) {
+            // 1. Try to update existing referral commission
+            const { data: existingComm, error: commError } = await supabaseAdmin
+                .from('commissions')
+                .update({ referrer_id: newReferrerId })
+                .eq('member_id', memberId)
+                .eq('type', 'referral')
+                .select();
+
+            // 2. If no commission exists, check if we should create one (5% of active investment)
+            if (!commError && (!existingComm || existingComm.length === 0)) {
+                const { data: investment } = await supabaseAdmin
+                    .from('investments')
+                    .select('amount')
+                    .eq('member_id', memberId)
+                    .eq('status', 'active')
+                    .maybeSingle();
+
+                if (investment) {
+                    const commissionAmount = Number(investment.amount) * 0.05;
+                    await supabaseAdmin
+                        .from('commissions')
+                        .insert({
+                            referrer_id: newReferrerId,
+                            member_id: memberId,
+                            amount: commissionAmount,
+                            type: 'referral'
+                        });
+                }
+            }
+        } else {
+            // If referrer removed, delete the referral commission
+            await supabaseAdmin
+                .from('commissions')
+                .delete()
+                .eq('member_id', memberId)
+                .eq('type', 'referral');
+        }
+
         revalidatePath("/dashboard/network");
         revalidatePath(`/dashboard/members/${memberId}`);
+        revalidatePath("/dashboard/commissions/add");
 
-        return { success: true, message: "Success! Referrer updated." };
+        return { success: true, message: "Success! Referrer and bonus updated." };
 
     } catch (err: unknown) {
         const error = err as Error;
