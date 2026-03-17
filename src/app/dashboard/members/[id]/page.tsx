@@ -60,6 +60,12 @@ export default function MemberDetailPage() {
     const [editCommissionAmount, setEditCommissionAmount] = useState<string>("");
     const [savingCommissionEdit, setSavingCommissionEdit] = useState(false);
 
+    // Edit Referrer State
+    const [editingReferrer, setEditingReferrer] = useState(false);
+    const [allMembers, setAllMembers] = useState<{ id: string; full_name: string }[]>([]);
+    const [selectedReferrerId, setSelectedReferrerId] = useState<string>("none");
+    const [savingReferrer, setSavingReferrer] = useState(false);
+
     useEffect(() => {
         const fetchMemberData = async () => {
             if (!id) return;
@@ -135,6 +141,56 @@ export default function MemberDetailPage() {
 
         fetchMemberData();
     }, [id]);
+
+    // Fetch all members for referrer dropdown
+    useEffect(() => {
+        const fetchAllMembers = async () => {
+            const { data: members } = await supabase
+                .from('profiles')
+                .select('id, full_name')
+                .neq('id', id)
+                .order('full_name', { ascending: true });
+            if (members) setAllMembers(members);
+        };
+        if (id) fetchAllMembers();
+    }, [id]);
+
+    const handleOpenEditReferrer = () => {
+        setSelectedReferrerId(data?.profile?.referrer_id || 'none');
+        setEditingReferrer(true);
+    };
+
+    const handleSaveReferrer = async () => {
+        setSavingReferrer(true);
+        try {
+            const newReferrerId = selectedReferrerId === 'none' ? null : selectedReferrerId;
+            const { error } = await supabase
+                .from('profiles')
+                .update({ referrer_id: newReferrerId })
+                .eq('id', id);
+            if (error) throw error;
+
+            // Update local state
+            const newReferrer = allMembers.find(m => m.id === selectedReferrerId);
+            setData(prev => {
+                if (!prev) return prev;
+                return {
+                    ...prev,
+                    profile: {
+                        ...prev.profile,
+                        referrer_id: newReferrerId,
+                        referrer: newReferrer ? { full_name: newReferrer.full_name } : undefined
+                    }
+                };
+            });
+            setEditingReferrer(false);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to update referrer.');
+        } finally {
+            setSavingReferrer(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -351,9 +407,19 @@ export default function MemberDetailPage() {
                                     <span className="text-muted-foreground">Email:</span>
                                     <span className="font-medium text-right">{profile.email}</span>
                                 </div>
-                                <div className="grid grid-cols-2 text-sm">
+                                <div className="grid grid-cols-2 text-sm items-center">
                                     <span className="text-muted-foreground">Referrer:</span>
-                                    <span className="font-medium text-right">{profile.referrer?.full_name || 'None'}</span>
+                                    <div className="flex items-center justify-end gap-2">
+                                        <span className="font-medium">{profile.referrer?.full_name || 'None'}</span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                            onClick={handleOpenEditReferrer}
+                                        >
+                                            <Edit className="h-3 w-3 mr-1" />Edit
+                                        </Button>
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 text-sm">
                                     <span className="text-muted-foreground">Joined:</span>
@@ -505,6 +571,40 @@ export default function MemberDetailPage() {
                             <Button variant="outline" onClick={() => setEditingLog(null)} disabled={savingEdit}>Cancel</Button>
                             <Button onClick={handleEditSave} disabled={savingEdit || !editAmount}>
                                 {savingEdit ? "Saving..." : "Save Changes"}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Edit Referrer Dialog */}
+                <Dialog open={editingReferrer} onOpenChange={(open) => !open && setEditingReferrer(false)}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Edit Referrer for {profile.full_name}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <p className="text-sm text-muted-foreground">
+                                Select the member who referred <strong>{profile.full_name}</strong>. This will update the network tree structure.
+                            </p>
+                            <div className="space-y-2">
+                                <Label htmlFor="referrer-select">New Referrer</Label>
+                                <select
+                                    id="referrer-select"
+                                    value={selectedReferrerId}
+                                    onChange={(e) => setSelectedReferrerId(e.target.value)}
+                                    className="w-full h-10 rounded-xl border border-border bg-accent/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                >
+                                    <option value="none">— No Referrer —</option>
+                                    {allMembers.map(m => (
+                                        <option key={m.id} value={m.id}>{m.full_name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setEditingReferrer(false)} disabled={savingReferrer}>Cancel</Button>
+                            <Button onClick={handleSaveReferrer} disabled={savingReferrer}>
+                                {savingReferrer ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : 'Save Referrer'}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
