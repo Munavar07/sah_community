@@ -152,39 +152,45 @@ export async function logProfitAction(prevState: unknown, formData: FormData) {
             return { success: false, message: "Invalid profit amount entered." };
         }
 
-        if (!proofFile || proofFile.size === 0) {
-            return { success: false, message: "A result screenshot is required." };
+        let publicUrl: string | null = null;
+
+        if (proofFile && proofFile.size > 0) {
+            // 1. Upload to Storage
+            const fileExt = proofFile.name.split('.').pop();
+            const fileName = `${userId}-${Date.now()}.${fileExt}`;
+            const arrayBuffer = await proofFile.arrayBuffer();
+
+            const { error: uploadError } = await supabaseAdmin.storage
+                .from('results')
+                .upload(fileName, Buffer.from(arrayBuffer), {
+                    contentType: proofFile.type,
+                    upsert: true
+                });
+
+            if (uploadError) {
+                return { success: false, message: `Upload Error: ${uploadError.message}` };
+            }
+
+            const { data } = supabaseAdmin.storage
+                .from('results')
+                .getPublicUrl(fileName);
+
+            publicUrl = data.publicUrl;
         }
-
-        // 1. Upload to Storage
-        const fileExt = proofFile.name.split('.').pop();
-        const fileName = `${userId}-${Date.now()}.${fileExt}`;
-        const arrayBuffer = await proofFile.arrayBuffer();
-
-        const { error: uploadError } = await supabaseAdmin.storage
-            .from('results')
-            .upload(fileName, Buffer.from(arrayBuffer), {
-                contentType: proofFile.type,
-                upsert: true
-            });
-
-        if (uploadError) {
-            return { success: false, message: `Upload Error: ${uploadError.message}` };
-        }
-
-        const { data: { publicUrl } } = supabaseAdmin.storage
-            .from('results')
-            .getPublicUrl(fileName);
 
         // 2. Insert into DB
+        const dbPayload: any = {
+            member_id: userId,
+            profit_amount: profit,
+            log_date: logDate
+        };
+        if (publicUrl) {
+            dbPayload.screenshot_url = publicUrl;
+        }
+
         const { error: dbError } = await supabaseAdmin
             .from('daily_logs')
-            .insert({
-                member_id: userId,
-                profit_amount: profit,
-                screenshot_url: publicUrl,
-                log_date: logDate
-            });
+            .insert(dbPayload);
 
         if (dbError) {
             return { success: false, message: `Database Error: ${dbError.message}` };

@@ -51,10 +51,7 @@ export default function LogProfitPage() {
         setMessage(null);
 
         try {
-            if (!file) throw new Error("Please upload a result screenshot.");
-
-            // Client-side size check (4MB)
-            if (file.size > 4 * 1024 * 1024) {
+            if (file && file.size > 4 * 1024 * 1024) {
                 throw new Error("File is too large. Please upload an image smaller than 4MB.");
             }
 
@@ -62,7 +59,9 @@ export default function LogProfitPage() {
             const formData = new FormData();
             formData.append("userId", user.id);
             formData.append("profit", profit);
-            formData.append("proof", file);
+            if (file) {
+                formData.append("proof", file);
+            }
             formData.append("logDate", logDate);
 
             const result = await logProfitAction(null, formData);
@@ -177,7 +176,6 @@ export default function LogProfitPage() {
                                         accept="image/*"
                                         ref={fileInputRef}
                                         onChange={(e) => setFile(e.target.files?.[0] || null)}
-                                        required
                                         className="pl-9"
                                     />
                                     <Upload className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
