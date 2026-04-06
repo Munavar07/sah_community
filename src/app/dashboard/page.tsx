@@ -5,7 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { DollarSign, Users, Activity, AlertCircle, Loader2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { AnnouncementsBanner } from "@/components/AnnouncementsBanner";
@@ -125,25 +125,32 @@ const LeaderDashboard = ({ stats }: { stats: DashboardStats }) => (
             {stats.chartData && stats.chartData.length > 0 ? (
                 <div className="h-[280px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={stats.chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                        <AreaChart data={stats.chartData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+                            <defs>
+                                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.02)" vertical={false} />
                             <XAxis dataKey="date" fontSize={11} tickLine={false} axisLine={false} stroke="#6b7280" />
                             <YAxis fontSize={11} tickLine={false} axisLine={false} stroke="#6b7280" tickFormatter={(v) => `$${v}`} />
                             <Tooltip
-                                contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'hsl(224,45%,7%)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}
-                                labelStyle={{ color: '#9ca3af', fontSize: '11px' }}
+                                contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(10, 10, 15, 0.8)', backdropFilter: 'blur(12px)', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
+                                labelStyle={{ color: '#9ca3af', fontSize: '11px', marginBottom: '4px' }}
                                 itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
                                 formatter={((value: unknown) => [`$${Number(value).toLocaleString()}`, 'Profit']) as any}
                             />
-                            <Line
+                            <Area
                                 type="monotone"
                                 dataKey="profit"
                                 stroke="#10b981"
-                                strokeWidth={2.5}
-                                dot={{ r: 3.5, fill: '#10b981', strokeWidth: 0 }}
-                                activeDot={{ r: 6, fill: '#10b981', stroke: 'rgba(16,185,129,0.3)', strokeWidth: 4 }}
+                                strokeWidth={3}
+                                fillOpacity={1}
+                                fill="url(#colorProfit)"
+                                activeDot={{ r: 6, fill: '#10b981', stroke: 'rgba(16,185,129,0.4)', strokeWidth: 4 }}
                             />
-                        </LineChart>
+                        </AreaChart>
                     </ResponsiveContainer>
                 </div>
             ) : (
