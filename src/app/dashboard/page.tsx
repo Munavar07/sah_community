@@ -8,6 +8,7 @@ import Link from "next/link";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { AnnouncementsBanner } from "@/components/AnnouncementsBanner";
 
 interface DashboardStats {
     totalInvestment: number;
@@ -323,6 +324,8 @@ export default function DashboardPage() {
                         {profile?.role === 'leader' ? 'Real-time network performance metrics' : 'Your personal trading performance'}
                     </p>
                 </div>
+
+                <AnnouncementsBanner />
 
                 {profile?.role === 'leader' ? (
                     <LeaderDashboard stats={stats} />

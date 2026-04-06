@@ -28,3 +28,13 @@ export type DailyLog = {
     created_at: string;
     profiles?: Profile; // Joined data
 };
+
+export type Announcement = {
+    id: string;
+    content: string;
+    type: 'info' | 'warning' | 'success';
+    is_active: boolean;
+    created_by: string;
+    created_at: string;
+    profiles?: Profile; // If joined with creator profile
+};

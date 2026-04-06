@@ -571,3 +571,114 @@ export async function deleteMemberAction(prevState: unknown, formData: FormData)
         return { success: false, message: "Critical Server Error. Please try again later." };
     }
 }
+
+export async function createAnnouncementAction(prevState: unknown, formData: FormData) {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            return { success: false, message: "Server Error: Missing Database Configuration" };
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const content = formData.get("content") as string;
+        const type = formData.get("type") as string || 'info';
+        const createdBy = formData.get("createdBy") as string;
+        
+        if (!content || content.trim().length === 0) {
+            return { success: false, message: "Announcement content cannot be empty." };
+        }
+        if (!createdBy) {
+            return { success: false, message: "User session invalid." };
+        }
+
+        const { error: dbError } = await supabaseAdmin
+            .from('announcements')
+            .insert({
+                content,
+                type,
+                created_by: createdBy,
+                is_active: true
+            });
+
+        if (dbError) {
+            return { success: false, message: `Database Error: ${dbError.message}` };
+        }
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/announcements");
+
+        return { success: true, message: "Announcement successfully created." };
+
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("CREATE ANNOUNCEMENT ERROR:", error);
+        return { success: false, message: "Critical Server Error. Please try again later." };
+    }
+}
+
+export async function toggleAnnouncementStatusAction(id: string, isActive: boolean) {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            return { success: false, message: "Server Error: Missing DB Config" };
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const { error } = await supabaseAdmin
+            .from('announcements')
+            .update({ is_active: isActive })
+            .eq('id', id);
+
+        if (error) {
+            return { success: false, message: error.message };
+        }
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/announcements");
+        
+        return { success: true, message: isActive ? "Announcement activated" : "Announcement deactivated" };
+    } catch (err: any) {
+        return { success: false, message: err.message || "Something went wrong" };
+    }
+}
+
+export async function deleteAnnouncementAction(id: string) {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+        if (!url || !key) {
+            return { success: false, message: "Server Error: Missing DB Config" };
+        }
+
+        const supabaseAdmin = createClient(url, key, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        const { error } = await supabaseAdmin
+            .from('announcements')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            return { success: false, message: error.message };
+        }
+
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/announcements");
+        
+        return { success: true, message: "Announcement deleted" };
+    } catch (err: any) {
+        return { success: false, message: err.message || "Something went wrong" };
+    }
+}
